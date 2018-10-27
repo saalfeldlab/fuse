@@ -1,13 +1,12 @@
 import glob
 import os
-
-import gpn.util
-from gunpowder import Hdf5Source, Roi, Hdf5Write, SimpleAugment
-
-import numpy as np
 import time
 
+import numpy as np
+
+import gpn.util
 import jnius_config
+from gunpowder import Hdf5Source, Roi, Hdf5Write, Coordinate
 
 RAW       = gpn.util.RAW
 GT_LABELS = gpn.util.GT_LABELS
@@ -19,11 +18,11 @@ parser.add_argument("--max-heap-size", default="80g")
 args = parser.parse_args()
 
 data_providers = []
-defect_dir = "/groups/saalfeld/saalfeldlab/larissa/data/cremi-2017/"
-# data_dir = "/groups/saalfeld/home/hanslovskyp/data/cremi/training"
 data_dir = '/groups/saalfeld/home/hanslovskyp/experiments/quasi-isotropic/data'
-# for data in glob.glob(os.path.join(data_dir, '*.h5')):
 file_pattern = 'sample_A_padded_20160501-2-additional-sections-fixed-offset.h5'
+
+
+
 for data in glob.glob(os.path.join(data_dir, file_pattern)):
     print(data)
     # TODO add masks later on
@@ -32,21 +31,18 @@ for data in glob.glob(os.path.join(data_dir, file_pattern)):
         datasets={
             RAW: 'volumes/raw',
             GT_LABELS: 'volumes/labels/neuron_ids-downsampled',
-            # ArrayKeys.GT_MASK: 'volumes/masks/groundtruth',
-            # ArrayKeys.TRAINING_MASK: 'volumes/masks/training'
-        },
-        array_specs={
-            # ArrayKeys.GT_MASK: ArraySpec(interpolatable=False)
         }
     )
     data_providers.append(h5_source)
 
 input_resolution  = (360, 36, 36)
 output_resolution = (120, 108, 108)
+offset = (13640, 10932, 10932)
 
-input_roi = Roi(offset=(0, 0, 0), shape=(7200, 720, 720))
-output_roi = Roi(offset=(60, -36, -36), shape=(7200, 648, 648))
-output_dir = output_dir=os.path.join(os.path.expanduser("~"), "tmp")
+input_roi = Roi(offset=(0, 0, 0), shape=Coordinate((200, 3072, 3072)) * input_resolution)
+output_roi = Roi(offset=(120, -36, -36), shape=Coordinate((373, 1250, 1250)) * output_resolution)
+roi = Roi(offset=(0, 0, 0), shape=Coordinate((12, 10, 10)) * output_resolution)#shape=(7200, 648, 648))
+output_dir = os.path.join(os.path.expanduser("~"), "tmp")
 output_filename = "test-nodes.h5"
 dataset_names = {RAW: 'volumes/raw-augmented', GT_LABELS: 'volumes/labels/neuron_ids-downsampled-augmented'}
 input_dataset_names = {RAW: 'volumes/raw', GT_LABELS: 'volumes/labels/neuron_ids-downsampled'}
@@ -63,10 +59,11 @@ store_input_node = Hdf5Write(
 
 gpn.util.run_augmentations(
     data_providers=data_providers,
-    augmentations=(SimpleAugment(transpose_only=[1,2]),),
-    keys_with_rois=((RAW, input_roi), (GT_LABELS, output_roi)),
+    roi=lambda key: roi,
+    augmentations=(),
+    keys_with_sizes=((RAW, input_roi), (GT_LABELS, output_roi)),
     output_node=output_node,
-    store_inputs_node=store_input_node)
+    store_inputs_node=None)
 
 jnius_config.add_options('-Xmx{}'.format(args.max_heap_size))
 
