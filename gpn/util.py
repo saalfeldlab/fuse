@@ -11,6 +11,7 @@ def run_augmentations(
         data_providers,
         input_roi,
         augmentations=(),
+        store_inputs_node=None,
         output_node=Hdf5Write(dataset_names={RAW:'volumes/raw'}, output_dir=os.path.join(os.path.expanduser("~"), "tmp"), output_filename="test-nodes.h5")):
 
 
@@ -31,6 +32,8 @@ def run_augmentations(
         for provider in data_providers)
 
     pipeline = data_sources
+    if store_inputs_node:
+        pipeline += store_inputs_node
     for augmentation in augmentations:
         pipeline += augmentation
     pipeline += output_node
