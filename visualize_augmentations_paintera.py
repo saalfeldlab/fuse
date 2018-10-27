@@ -41,13 +41,15 @@ for data in glob.glob(os.path.join(data_dir, file_pattern)):
     )
     data_providers.append(h5_source)
 
-input_resolution = (360, 36, 36)
+input_resolution  = (360, 36, 36)
+output_resolution = (120, 108, 108)
 
 input_roi = Roi(offset=(0, 0, 0), shape=(7200, 720, 720))
+output_roi = Roi(offset=(60, -36, -36), shape=(7200, 648, 648))
 output_dir = output_dir=os.path.join(os.path.expanduser("~"), "tmp")
 output_filename = "test-nodes.h5"
-dataset_names = {RAW: 'volumes/raw-augmented'}
-input_dataset_names = {RAW: 'volumes/raw'}
+dataset_names = {RAW: 'volumes/raw-augmented', GT_LABELS: 'volumes/labels/neuron_ids-downsampled-augmented'}
+input_dataset_names = {RAW: 'volumes/raw', GT_LABELS: 'volumes/labels/neuron_ids-downsampled'}
 
 output_node = Hdf5Write(
     dataset_names=dataset_names,
@@ -62,7 +64,7 @@ store_input_node = Hdf5Write(
 gpn.util.run_augmentations(
     data_providers=data_providers,
     augmentations=(SimpleAugment(transpose_only=[1,2]),),
-    input_roi=input_roi,
+    keys_with_rois=((RAW, input_roi), (GT_LABELS, output_roi)),
     output_node=output_node,
     store_inputs_node=store_input_node)
 
@@ -80,14 +82,23 @@ scene, stage = payntera.jfx.start_stage(viewer.paneWithStatus.getPane())
 
 
 with h5py.File(os.path.join(output_dir, output_filename)) as f:
-    raw = f[dataset_names[RAW]].value
-    raw_augmented = f[input_dataset_names[RAW]].value
+    raw = f[input_dataset_names[RAW]].value
+    raw_augmented = f[dataset_names[RAW]].value
+    labels = f[input_dataset_names[GT_LABELS]].value
+    labels_augmented = f[dataset_names[GT_LABELS]].value
 
 raw_img           = imglyb.to_imglib(raw)
 raw_augmented_img = imglyb.to_imglib(raw_augmented)
 
+labels_img           = imglyb.to_imglib(labels)
+labels_augmented_img = imglyb.to_imglib(labels_augmented)
+
+max_label = np.max(labels)
+
 raw_state = pbv.addSingleScaleRawSource(raw_img, input_resolution[::-1], input_roi.get_begin()[::-1], np.min(raw), np.max(raw), 'raw')
+label_state = pbv.addSingleScaleLabelSource(labels_img, output_resolution[::-1], output_roi.get_begin()[::-1], max_label+1, 'labels')
 raw_augmented_state = pbv.addSingleScaleRawSource(raw_augmented_img, input_resolution[::-1], input_roi.get_begin()[::-1], np.min(raw_augmented), np.max(raw_augmented), 'raw-augmented')
+label_augmented_state = pbv.addSingleScaleLabelSource(labels_augmented_img, output_resolution[::-1], output_roi.get_begin()[::-1], max_label+1, 'labels-augmented')
 viewer.keyTracker.installInto(scene)
 scene.addEventFilter(autoclass('javafx.scene.input.MouseEvent').ANY, viewer.mouseTracker)
 
