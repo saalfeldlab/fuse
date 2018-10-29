@@ -69,10 +69,10 @@ labels_img = imglyb.to_imglib(labels.data)
 
 max_label = np.max(labels.data)
 
-raw_state = pbv.addSingleScaleRawSource(raw_img, input_resolution[::-1], input_roi.get_begin()[::-1], np.min(raw.data), np.max(raw.data), 'raw-augmented')
-label_state = pbv.addSingleScaleLabelSource(labels_img, output_resolution[::-1], output_roi.get_begin()[::-1], max_label+1, 'labels-augmented')
+raw_state = pbv.addSingleScaleRawSource(raw_img, raw.spec.voxel_size[::-1], raw.spec.roi.get_begin()[::-1], np.min(raw.data), np.max(raw.data), 'raw-augmented')
+label_state = pbv.addSingleScaleLabelSource(labels_img, labels.spec.voxel_size[::-1], labels.spec.roi.get_begin()[::-1], max_label+1, 'labels-augmented')
 viewer.keyTracker.installInto(scene)
 scene.addEventFilter(autoclass('javafx.scene.input.MouseEvent').ANY, viewer.mouseTracker)
 
-while not stage.isHidden():
+while stage.isShowing():
     time.sleep(0.1)
