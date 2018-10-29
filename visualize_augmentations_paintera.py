@@ -1,4 +1,5 @@
 import glob
+import logging
 import os
 import time
 
@@ -6,10 +7,13 @@ import numpy as np
 
 import gpn.util
 import jnius_config
-from gunpowder import Hdf5Source, Roi, Coordinate
+from gunpowder import Hdf5Source, Roi, Coordinate, SimpleAugment
+
+logging.basicConfig(level = logging.DEBUG)
 
 RAW       = gpn.util.RAW
 GT_LABELS = gpn.util.GT_LABELS
+
 
 def add_to_viewer(batch, keys, name=lambda key: key.identifier, is_label=lambda key, array: array.data.dtype == np.uint64):
     states = {}
@@ -68,15 +72,17 @@ input_resolution  = (360, 36, 36)
 output_resolution = (120, 108, 108)
 offset = (13640, 10932, 10932)
 
-input_roi = Roi(offset=(0, 0, 0), shape=Coordinate((200, 3072, 3072)) * input_resolution)
-output_roi = Roi(offset=(120, -36, -36), shape=Coordinate((373, 1250, 1250)) * output_resolution)
-roi = Roi(offset=(0, 0, 0), shape=Coordinate((120, 100, 100)) * output_resolution)#shape=(7200, 648, 648))
+roi = Roi(offset=(13640, 32796 + 36, 32796 + 36), shape=Coordinate((120, 100, 100)) * output_resolution)
+
+augmentations = (
+    SimpleAugment(transpose_only=[1,2]),
+)
 
 batch = gpn.util.run_augmentations(
     data_providers=data_providers,
-    roi=lambda key: roi,
-    augmentations=(),
-    keys_with_sizes=((RAW, input_roi), (GT_LABELS, output_roi)))
+    roi=lambda key: roi.copy(),
+    augmentations=augmentations,
+    keys=(RAW, GT_LABELS))
 
 jnius_config.add_options('-Xmx{}'.format(args.max_heap_size))
 
