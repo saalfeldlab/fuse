@@ -11,6 +11,37 @@ from gunpowder import Hdf5Source, Roi, Coordinate
 RAW       = gpn.util.RAW
 GT_LABELS = gpn.util.GT_LABELS
 
+def add_to_viewer(batch, keys, name=lambda key: key.identifier, is_label=lambda key, array: array.data.dtype == np.uint64):
+    states = {}
+    for key in keys:
+        if not key in batch:
+            continue
+
+        data       = batch[key]
+        data_img   = imglyb.to_imglib(data.data)
+        voxel_size = data.spec.voxel_size[::-1]
+        offset     = data.spec.roi.get_begin()[::-1]
+
+        if is_label(key, data):
+            state = pbv.addSingleScaleLabelSource(
+                data_img,
+                voxel_size,
+                offset,
+                np.max(data.data) + 1,
+                name(key))
+        else:
+            state = pbv.addSingleScaleRawSource(
+                data_img,
+                voxel_size,
+                offset,
+                np.min(data.data),
+                np.max(data.data),
+                name(key))
+        states[key] = state
+
+    return states
+
+
 import argparse
 
 parser = argparse.ArgumentParser()
@@ -60,17 +91,8 @@ pbv = viewer.baseView
 scene, stage = payntera.jfx.start_stage(viewer.paneWithStatus.getPane())
 payntera.jfx.invoke_on_jfx_application_thread(lambda: pbv.orthogonalViews().setScreenScales([0.3, 0.1, 0.03]))
 
+states = add_to_viewer(batch, keys=(RAW, GT_LABELS))
 
-raw = batch[RAW]
-labels = batch[GT_LABELS]
-
-raw_img    = imglyb.to_imglib(raw.data)
-labels_img = imglyb.to_imglib(labels.data)
-
-max_label = np.max(labels.data)
-
-raw_state = pbv.addSingleScaleRawSource(raw_img, raw.spec.voxel_size[::-1], raw.spec.roi.get_begin()[::-1], np.min(raw.data), np.max(raw.data), 'raw-augmented')
-label_state = pbv.addSingleScaleLabelSource(labels_img, labels.spec.voxel_size[::-1], labels.spec.roi.get_begin()[::-1], max_label+1, 'labels-augmented')
 viewer.keyTracker.installInto(scene)
 scene.addEventFilter(autoclass('javafx.scene.input.MouseEvent').ANY, viewer.mouseTracker)
 
