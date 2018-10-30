@@ -7,7 +7,7 @@ import numpy as np
 
 import gpn.util
 import jnius_config
-from gunpowder import Hdf5Source, Roi, Coordinate, SimpleAugment
+from gunpowder import Hdf5Source, Roi, Coordinate, SimpleAugment, ArrayKey
 
 logging.basicConfig(level = logging.DEBUG)
 
@@ -97,7 +97,12 @@ pbv = viewer.baseView
 scene, stage = payntera.jfx.start_stage(viewer.paneWithStatus.getPane())
 payntera.jfx.invoke_on_jfx_application_thread(lambda: pbv.orthogonalViews().setScreenScales([0.3, 0.1, 0.03]))
 
-states = add_to_viewer(batch, keys=(RAW, GT_LABELS))
+keys_to_show = (
+    RAW,
+    GT_LABELS,
+    ArrayKey('RAW-original'),
+    ArrayKey('GT_LABELS-original'))
+states = add_to_viewer(batch, keys=keys_to_show)
 
 viewer.keyTracker.installInto(scene)
 scene.addEventFilter(autoclass('javafx.scene.input.MouseEvent').ANY, viewer.mouseTracker)
