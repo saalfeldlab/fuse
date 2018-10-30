@@ -7,7 +7,8 @@ import numpy as np
 
 import gpn.util
 import jnius_config
-from gunpowder import Hdf5Source, Roi, Coordinate, SimpleAugment, ArrayKey
+from gpn.simple_augment import SimpleAugment
+from gunpowder import Hdf5Source, Roi, Coordinate, ArrayKey
 
 logging.basicConfig(level = logging.DEBUG)
 
@@ -75,7 +76,7 @@ offset = (13640, 10932, 10932)
 roi = Roi(offset=(13640, 32796 + 36, 32796 + 36), shape=Coordinate((120, 100, 100)) * output_resolution)
 
 augmentations = (
-    SimpleAugment(transpose_only=[1,2]),
+    SimpleAugment(transpose_only=[1,2], apply_to=(RAW, GT_LABELS)),
 )
 
 batch = gpn.util.run_augmentations(
