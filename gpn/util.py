@@ -12,12 +12,11 @@ def run_augmentations(
         roi,
         keys=(),
         augmentations=(),
-        duplicate_key_mapping=lambda key: '{}-original'.format(key.identifier),
         voxel_size=lambda key: None):
 
     request = BatchRequest()
     for key in keys:
-        request[key] = ArraySpec(roi(key), voxel_size=voxel_size(key))
+        request[key] = ArraySpec(roi(key).snap_to_grid(voxel_size(key)), voxel_size=voxel_size(key))
 
     data_sources = tuple(provider for provider in data_providers)
 
