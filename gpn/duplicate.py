@@ -31,7 +31,7 @@ class Duplicate(BatchFilter):
 
             spec = self.spec[key].copy()
             self.spec[value] = spec
-            logger.debug("Set spec for key {} to be the same as for key {}: {}", value, key, spec)
+            logger.debug("Set spec for key %s to be the same as for key %s: %s", value, key, spec)
 
     def prepare(self, request):
         pass
