@@ -1,28 +1,37 @@
 from gpn.duplicate import Duplicate
-from gunpowder import ArrayKey, BatchRequest, build, RandomLocation, RandomProvider, ArraySpec
+from gpn.snapshot_as_dict import SnapshotAsDict
+from gunpowder import ArrayKey, BatchRequest, build, RandomLocation, RandomProvider, ArraySpec, logging
 
 RAW       = ArrayKey('RAW')
 GT_LABELS = ArrayKey('GT_LABELS')
+
+logger = logging.getLogger(__name__)
 
 def run_augmentations(
         data_providers,
         roi,
         keys=(),
         augmentations=(),
-        duplicate_key_mapping=lambda key: '{}-original'.format(key.identifier)):
+        duplicate_key_mapping=lambda key: '{}-original'.format(key.identifier),
+        voxel_size=lambda key: None):
 
     request = BatchRequest()
-    duplicates = {}
     for key in keys:
-        request[key] = ArraySpec(roi(key))
-        duplicates[key] = ArrayKey(duplicate_key_mapping(key))
+        request[key] = ArraySpec(roi(key), voxel_size=voxel_size(key))
 
     data_sources = tuple(provider for provider in data_providers)
 
-    pipeline = data_sources + RandomProvider() + Duplicate(duplicates)
+    snapshot = SnapshotAsDict()
+
+    pipeline = data_sources + RandomProvider() + snapshot
 
     for augmentation in augmentations:
         pipeline += augmentation
 
+
     with build(pipeline) as b:
-        return b.request_batch(request)
+        logging.debug("submitting request %s", request)
+        batch = b.request_batch(request)
+
+    logger.debug("Got snapshots: %s", snapshot.snapshots)
+    return batch, snapshot.snapshots[0]
