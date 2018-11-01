@@ -77,7 +77,11 @@ roi = Roi(offset=(13640 + 3600, 32796 + 36 + 10800, 32796 + 36 + 10800), shape=C
 augmentations = (
     # SimpleAugment(transpose_only=[1,2]),
     # ElasticAugmentNonMatchingVoxelSize(control_point_spacing=(1, 1, 1), jitter_sigma=(0.0, 3.0, 3.0), rotation_interval=(0, np.pi/2.0)),
-    ElasticAugment(voxel_size=(120, 36, 36)),
+    ElasticAugment(
+        voxel_size=(120, 36, 36),
+        control_point_spacing=(3, 10, 10),
+        jitter_sigma=(0, 2, 2),
+        rotation_interval=(0, 0*2*np.pi)),
 )
 
 batch, snapshot = gpn.util.run_augmentations(

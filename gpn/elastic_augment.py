@@ -15,10 +15,27 @@ logger = logging.getLogger(__name__)
 
 class ElasticAugment(BatchFilter):
 
-    def __init__(self, voxel_size, spatial_dims=3):
+    def __init__(
+            self,
+            voxel_size,
+            control_point_spacing,
+            jitter_sigma,
+            rotation_interval,
+            prob_slip=0,
+            prob_shift=0,
+            max_misalign=0,
+            spatial_dims=3):
         super(BatchFilter, self).__init__()
         self.voxel_size = voxel_size
+        self.control_point_spacing = control_point_spacing
+        self.jitter_sigma = jitter_sigma
+        self.rotation_start = rotation_interval[0]
+        self.rotation_max_amount = rotation_interval[1] - rotation_interval[0]
+        self.prob_slip = prob_slip
+        self.prob_shift = prob_shift
+        self.max_misalign = max_misalign
         self.spatial_dims = spatial_dims
+
         self.transformations = {}
         self.target_rois = {}
 
@@ -121,26 +138,21 @@ class ElasticAugment(BatchFilter):
                 subsample=1)
         # needs control points in world coordinates
         # TODO add these transformations as well
-        # if sum(self.jitter_sigma) > 0:
-        #     transformation += augment.create_elastic_transformation(
-        #             target_shape,
-        #             self.control_point_spacing,
-        #             self.jitter_sigma,
-        #             subsample=self.subsample)
-        # rotation = np.random()*self.rotation_max_amount + self.rotation_start
-        # if rotation != 0:
-        #     transformation += augment.create_rotation_transformation(
-        #             target_shape,
-        #             rotation,
-        #             subsample=self.subsample)
-        #
-        # if self.subsample > 1:
-        #     transformation = augment.upscale_transformation(
-        #             transformation,
-        #             target_shape)
-        #
-        # if self.prob_slip + self.prob_shift > 0:
-        #     self.__misalign(transformation)
+        if sum(self.jitter_sigma) > 0:
+            transformation += augment.create_elastic_transformation(
+                    target_shape,
+                    self.control_point_spacing,
+                    self.jitter_sigma,
+                    subsample=1)
+        rotation = np.random.random()*self.rotation_max_amount + self.rotation_start
+        if rotation != 0:
+            transformation += augment.create_rotation_transformation(
+                    target_shape,
+                    rotation,
+                    subsample=1)
+
+        if self.prob_slip + self.prob_shift > 0:
+            self.__misalign(transformation)
 
         return transformation
 
@@ -233,3 +245,44 @@ parameter, the output pixel value at index o was determined from the input image
         for d in range(displacements.shape[0]):
             absolute[d, ...] = positions[d] + displacements[d, ...]
         return absolute
+
+    def __misalign(self, transformation):
+
+        assert transformation.shape[0] == 3, (
+            "misalign can only be applied to 3D volumes")
+
+        num_sections = transformation[0].shape[0]
+
+        shifts = [Coordinate((0,0,0))]*num_sections
+        for z in range(num_sections):
+
+            r = np.random.random()
+
+            if r <= self.prob_slip:
+
+                shifts[z] = self.__random_offset()
+
+            elif r <= self.prob_slip + self.prob_shift:
+
+                offset = self.__random_offset()
+                for zp in range(z, num_sections):
+                    shifts[zp] += offset
+
+        logger.debug("misaligning sections with " + str(shifts))
+
+        dims = 3
+        bb_min = tuple(int(math.floor(transformation[d].min())) for d in range(dims))
+        bb_max = tuple(int(math.ceil(transformation[d].max())) + 1 for d in range(dims))
+        logger.debug("min/max of transformation: " + str(bb_min) + "/" + str(bb_max))
+
+        for z in range(num_sections):
+            transformation[1][z,:,:] += shifts[z][1]
+            transformation[2][z,:,:] += shifts[z][2]
+
+        bb_min = tuple(int(math.floor(transformation[d].min())) for d in range(dims))
+        bb_max = tuple(int(math.ceil(transformation[d].max())) + 1 for d in range(dims))
+        logger.debug("min/max of transformation after misalignment: " + str(bb_min) + "/" + str(bb_max))
+
+    def __random_offset(self):
+
+        return Coordinate((0,) + tuple(self.max_misalign - np.random.randint(0, 2*int(self.max_misalign)) for d in range(2)))
