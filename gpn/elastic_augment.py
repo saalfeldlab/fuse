@@ -42,25 +42,27 @@ class ElasticAugment(BatchFilter):
         self.transformations.clear()
         self.target_rois.clear()
 
-        logging.debug('preparing %s with voxel size %s', type(self).__name__, self.voxel_size)
+        logger.debug('preparing %s with voxel size %s', type(self).__name__, self.voxel_size)
 
         for key, spec in request.items():
 
             assert isinstance(key, ArrayKey), 'Only ArrayKey supported but got %s in request'%type(key)
+
+            logger.debug('preparing key %s with spec %s', key, spec)
 
             voxel_size            = spec.voxel_size if isinstance(spec, ArraySpec) else self.voxel_size
             target_roi            = self.__spatial_roi(spec.roi).snap_to_grid(voxel_size)
             self.target_rois[key] = target_roi
             target_roi_voxels     = target_roi // voxel_size
 
-            logging.debug('voxel size for key %s: %s', key, voxel_size)
+            logger.debug('voxel size for key %s: %s', key, voxel_size)
 
             vs_ratio     = np.array([vs1/vs2 for vs1, vs2 in zip(voxel_size, self.voxel_size)])
             offset_world = (target_roi - master_roi_snapped.get_begin()).get_begin()
-            scale        = 1.0 / vs_ratio
-            offset       = offset_world / voxel_size
+            scale        = vs_ratio#1.0 / vs_ratio
+            offset       = -offset_world / self.voxel_size#offset_world / voxel_size
 
-            logging.debug('scale %s and offset %s for key %s', scale, offset, key)
+            logger.debug('scale %s and offset %s for key %s', scale, offset, key)
 
             displacements = self.__affine(displacement_world, scale, offset, target_roi_voxels)
             self.__scale_displacements(displacements, voxel_size)
@@ -83,7 +85,12 @@ class ElasticAugment(BatchFilter):
 
             # for arrays, the target ROI and the requested ROI should be the
             # same in spatial coordinates
-            assert (self.target_rois[key].get_begin() == request[key].roi.get_begin()[-self.spatial_dims:])
+            assert \
+                self.target_rois[key].get_begin() == request[key].roi.get_begin()[-self.spatial_dims:], \
+                'inconsistent offsets {} -- {} for key {}'.format(
+                    self.target_rois[key].get_begin(),
+                    request[key].roi.get_begin()[-self.spatial_dims:],
+                    key)
             assert (self.target_rois[key].get_shape() == request[key].roi.get_shape()[-self.spatial_dims:])
 
             # reshape array data into (channels,) + spatial dims
@@ -144,11 +151,41 @@ class ElasticAugment(BatchFilter):
         )
 
     def __affine(self, array, scale, offset, target_roi, dtype=np.float32, order=1):
+        '''taken from the scipy 0.18.1 doc:
+https://docs.scipy.org/doc/scipy-0.18.1/reference/generated/scipy.ndimage.affine_transform.html#scipy.ndimage.affine_transform
+
+Apply an affine transformation.
+The given matrix and offset are used to find for each point in the output the corresponding coordinates in the input by
+an affine transformation. The value of the input at those coordinates is determined by spline interpolation of the
+requested order. Points outside the boundaries of the input are filled according to the given mode.
+
+Given an output image pixel index vector o, the pixel value is determined from the input image at position
+np.dot(matrix,o) + offset.
+
+A diagonal matrix can be specified by supplying a one-dimensional array-like to the matrix parameter, in which case a
+more efficient algorithm is applied.
+
+Changed in version 0.18.0: Previously, the exact interpretation of the affine transformation depended on whether the
+matrix was supplied as a one-dimensional or two-dimensional array. If a one-dimensional array was supplied to the matrix
+parameter, the output pixel value at index o was determined from the input image at position matrix * (o + offset).
+        '''
         ndim   = array.shape[0]
         output = np.empty((ndim,) + target_roi.get_shape(), dtype=dtype)
-        logging.debug('Transforming array %s with scale %s and offset %s into target_roi%s', array.shape, scale, offset, target_roi)
+        logger.debug(
+            'Transforming array %s with scale %s and offset %s into target_roi%s',
+            array.shape,
+            scale,
+            offset,
+            target_roi)
         for d in range(ndim):
-            scipy.ndimage.affine_transform(input=array[d], matrix=scale, offset=offset, output=output[d], order=order)
+            scipy.ndimage.affine_transform(
+                input=array[d],
+                matrix=scale,
+                offset=offset,
+                output=output[d],
+                output_shape=output[d].shape,
+                order=order,
+                mode='nearest')
         return output
 
     def __get_minimal_containing_roi(self, transformation):
@@ -158,6 +195,8 @@ class ElasticAugment(BatchFilter):
         # get bounding box of needed data for transformation
         bb_min = Coordinate(int(math.floor(transformation[d].min())) for d in range(dims))
         bb_max = Coordinate(int(math.ceil(transformation[d].max())) + 1 for d in range(dims))
+
+        logger.debug('Got bb_min=%s and bb_max=%s', bb_min, bb_max)
 
         # create roi sufficiently large to feed transformation
         source_roi = Roi(

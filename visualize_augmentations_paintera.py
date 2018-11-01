@@ -7,6 +7,7 @@ import numpy as np
 import gpn.util
 import jnius_config
 # from gpn.elastic_augment_non_matching_voxel_size import ElasticAugmentNonMatchingVoxelSize
+from gpn.elastic_augment import ElasticAugment
 from gunpowder import Hdf5Source, Roi, Coordinate, ArrayKey, SimpleAugment
 
 logging.basicConfig(level = logging.DEBUG)
@@ -74,8 +75,9 @@ offset = (13640, 10932, 10932)
 roi = Roi(offset=(13640 + 3600, 32796 + 36 + 10800, 32796 + 36 + 10800), shape=Coordinate((120, 100, 100)) * output_resolution)
 
 augmentations = (
-    SimpleAugment(transpose_only=[1,2]),
+    # SimpleAugment(transpose_only=[1,2]),
     # ElasticAugmentNonMatchingVoxelSize(control_point_spacing=(1, 1, 1), jitter_sigma=(0.0, 3.0, 3.0), rotation_interval=(0, np.pi/2.0)),
+    ElasticAugment(voxel_size=(120, 36, 36)),
 )
 
 batch, snapshot = gpn.util.run_augmentations(
