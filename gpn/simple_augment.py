@@ -25,14 +25,13 @@ class SimpleAugment(BatchFilter):
             non-spatial dimensions.
     '''
 
-    def __init__(self, mirror_only=None, transpose_only=None, apply_to=None):
+    def __init__(self, mirror_only=None, transpose_only=None):
 
         self.mirror_only = mirror_only
         self.transpose_only = transpose_only
         self.mirror_mask = None
         self.dims = None
         self.transpose_dims = None
-        self.apply_to = apply_to
 
     def setup(self):
 
@@ -80,53 +79,60 @@ class SimpleAugment(BatchFilter):
 
     def process(self, batch, request):
 
+        logger.debug("Processing request %s", request)
+
+        remove_arrays_from_batch = [key for key, _ in batch.arrays.items() if key not in request]
+        remove_points_from_batch = [key for key, _ in batch.points.items() if key not in request]
+
+        for key in remove_arrays_from_batch:
+            del batch.arrays[key]
+
+        for key in remove_points_from_batch:
+            del batch.points[key]
+
         mirror = tuple(
                 slice(None, None, -1 if m else 1)
                 for m in self.mirror
         )
-        # arrays
-        for (array_key, array) in batch.arrays.items():
 
-            if hasattr(type(self.apply_to), '__iter__') and array_key not in self.apply_to:
-                continue
-
-            array.data = array.data[mirror]
-            if self.transpose != (0, 1, 2):
-                array.data = array.data.transpose(self.transpose)
-        # points
         total_roi_offset = self.total_roi.get_offset()
-        for (points_key, points) in batch.points.items():
 
-            if hasattr(type(self.apply_to), '__iter__') and points_key not in self.apply_to:
-                continue
+        for key, _ in request.items():
 
-            for loc_id, syn_point in points.data.items():
-                # mirror
-                location_in_total_offset = np.asarray(syn_point.location) - total_roi_offset
-                syn_point.location = np.asarray([self.total_roi.get_end()[dim] - location_in_total_offset[dim]
-                                                 if m else syn_point.location[dim] for dim, m in enumerate(self.mirror)])
-                # transpose
-                if self.transpose != (0, 1, 2):
-                    syn_point.location = np.asarray([syn_point.location[self.transpose[d]] for d in range(self.dims)])
+            assert key in batch.arrays or key in batch.points, 'key {} was requested but is not in batch'.format(key)
 
-                # due to the mirroring, points at the lower boundary of the ROI
-                # could fall on the upper one, which excludes them from the ROI
-                if not points.spec.roi.contains(syn_point.location):
-                    del points.data[loc_id]
+            # arrays
+            if key in batch.arrays:
+                array = batch.arrays[key]
+                array.data = array.data[mirror]
+                if self.transpose != (0,1,2):
+                    array.data = array.data.transpose(self.transpose)
 
-        # arrays & points
-        for collection_type in [batch.arrays, batch.points]:
-            for (key, collector) in collection_type.items():
+            # points
+            elif key in batch.points:
+                points = batch.points[key]
+                for loc_id, syn_point in points.data.items():
+                    # mirror
+                    location_in_total_offset = np.asarray(syn_point.location) - total_roi_offset
+                    syn_point.location = np.asarray([self.total_roi.get_end()[dim] - location_in_total_offset[dim]
+                                                     if m else syn_point.location[dim] for dim, m in enumerate(self.mirror)])
+                    # transpose
+                    if self.transpose != (0, 1, 2):
+                        syn_point.location = np.asarray([syn_point.location[self.transpose[d]] for d in range(self.dims)])
 
-                if hasattr(type(self.apply_to), '__iter__') and key not in self.apply_to:
-                    continue
+                    # due to the mirroring, points at the lower boundary of the ROI
+                    # could fall on the upper one, which excludes them from the ROI
+                    if not points.spec.roi.contains(syn_point.location):
+                        del points.data[loc_id]
 
-                logger.debug("total ROI: %s"%self.total_roi)
-                logger.debug("upstream %s ROI: %s"%(key, collector.spec.roi))
-                self.__mirror_roi(collector.spec.roi, self.total_roi, self.mirror)
-                logger.debug("mirrored %s ROI: %s"%(key,collector.spec.roi))
-                self.__transpose_roi(collector.spec.roi, self.transpose)
-                logger.debug("transposed %s ROI: %s"%(key,collector.spec.roi))
+            # both
+            arrat_or_points = batch.arrays[key] if key in batch.arrays else batch.points[key]
+            logger.debug("total ROI: %s"%self.total_roi)
+            logger.debug("upstream %s ROI: %s"%(key, arrat_or_points.spec.roi))
+            self.__mirror_roi(arrat_or_points.spec.roi, self.total_roi, self.mirror)
+            logger.debug("mirrored %s ROI: %s"%(key, arrat_or_points.spec.roi))
+            self.__transpose_roi(arrat_or_points.spec.roi, self.transpose)
+            logger.debug("transposed %s ROI: %s"%(key, arrat_or_points.spec.roi))
 
 
     def __mirror_request(self, request, mirror):
