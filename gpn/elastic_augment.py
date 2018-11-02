@@ -72,7 +72,7 @@ class ElasticAugment(BatchFilter):
             self.target_rois[key] = target_roi
             target_roi_voxels     = target_roi // voxel_size
 
-            logger.debug('voxel size for key %s: %s', key, voxel_size)
+            logger.debug('target roi is %s, request roi is %s, for key %s with voxel size %s', target_roi, spec.roi, key, voxel_size)
 
             vs_ratio     = np.array([vs1/vs2 for vs1, vs2 in zip(voxel_size, self.voxel_size)])
             offset_world = (target_roi - master_roi_snapped.get_begin()).get_begin()
