@@ -24,7 +24,8 @@ class ElasticAugment(BatchFilter):
             prob_slip=0,
             prob_shift=0,
             max_misalign=0,
-            spatial_dims=3):
+            spatial_dims=3,
+            seed=None):
         super(BatchFilter, self).__init__()
         self.voxel_size = voxel_size
         self.control_point_spacing = control_point_spacing
@@ -35,6 +36,7 @@ class ElasticAugment(BatchFilter):
         self.prob_shift = prob_shift
         self.max_misalign = max_misalign
         self.spatial_dims = spatial_dims
+        self.seed = seed
 
         self.transformations = {}
         self.target_rois = {}
@@ -47,6 +49,9 @@ class ElasticAugment(BatchFilter):
         total_roi  = request.get_total_roi()
         master_roi = self.__spatial_roi(total_roi)
         logger.debug("master roi is %s", master_roi)
+
+        if (self.seed is not None):
+            np.random.seed(self.seed)
 
         master_roi_snapped  = master_roi.snap_to_grid(self.voxel_size, mode='grow')
         master_roi_voxels   = master_roi_snapped // self.voxel_size
