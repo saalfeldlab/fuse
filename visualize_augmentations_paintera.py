@@ -78,8 +78,8 @@ roi = Roi(offset=(13640 + 3600, 32796 + 36 + 10800, 32796 + 36 + 10800), shape=C
 
 augmentations = (
     ElasticAugment(
-        voxel_size=tuple(9 * vs for vs in (40, 4, 4)),
-        control_point_spacing=(4, 4, 4),
+        voxel_size=tuple(8 * 9 * vs for vs in (40, 4, 4)),
+        control_point_spacing=(4, 40, 40),
         jitter_sigma=(0, 2, 2),
         rotation_interval=(0, 0*2*np.pi)),
 )
