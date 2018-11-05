@@ -55,6 +55,8 @@ args = parser.parse_args()
 data_providers = []
 data_dir = '/groups/saalfeld/home/hanslovskyp/experiments/quasi-isotropic/data'
 file_pattern = 'sample_A_padded_20160501-2-additional-sections-fixed-offset.h5'
+file_pattern = 'sample_B_padded_20160501-2-additional-sections-fixed-offset.h5'
+file_pattern = 'sample_C_padded_20160501-2-additional-sections-fixed-offset.h5'
 
 
 
