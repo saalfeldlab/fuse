@@ -1,5 +1,8 @@
-import glob
 import logging
+logging.getLogger('gpn.elastic_augment').setLevel(logging.DEBUG)
+logging.getLogger('gpn.util').setLevel(logging.DEBUG)
+
+import glob
 import os
 import time
 import numpy as np
@@ -10,7 +13,6 @@ from gpn.elastic_augment import ElasticAugment
 from gunpowder import Hdf5Source, Roi, Coordinate
 
 # logging.basicConfig(level = logging.DEBUG)
-logging.getLogger('gpn.elastic_augment').setLevel(logging.DEBUG)
 
 RAW       = gpn.util.RAW
 GT_LABELS = gpn.util.GT_LABELS
@@ -71,22 +73,32 @@ for data in glob.glob(os.path.join(data_dir, file_pattern)):
     data_providers.append(h5_source)
 
 input_resolution  = (360, 36, 36)
-output_resolution = (120, 108, 108)
+output_resolution = Coordinate((120, 108, 108))
 offset = (13640, 10932, 10932)
 
-roi = Roi(offset=(13640 + 3600, 32796 + 36 + 10800, 32796 + 36 + 10800), shape=Coordinate((120, 100, 100)) * output_resolution)
+output_shape = Coordinate((120, 100, 100)) * output_resolution
+output_offset = (13640 + 3600, 32796 + 36 + 10800, 32796 + 36 + 10800)
+
+input_shape = output_shape + (720, 0, 0)
+input_offset = Coordinate(output_offset) - input_resolution - (0, 72, 72)
+
+overhang = Coordinate((360, 108, 108)) * 16
+
+output_roi = Roi(offset=output_offset, shape=output_shape)
+input_roi  = Roi(offset=output_roi.snap_to_grid(output_resolution).get_begin() - overhang, shape=output_roi.snap_to_grid(output_resolution).get_shape() + overhang * 2)
 
 augmentations = (
     ElasticAugment(
         voxel_size=tuple(8 * 9 * vs for vs in (40, 4, 4)),
         control_point_spacing=(4, 40, 40),
         jitter_sigma=(0, 2, 2),
-        rotation_interval=(0, 0*2*np.pi)),
+        rotation_interval=(0, 0*2*np.pi),
+        seed=100),
 )
 
 batch, snapshot = gpn.util.run_augmentations(
     data_providers=data_providers,
-    roi=lambda key: roi.copy(),
+    roi=lambda key: output_roi.copy() if key == GT_LABELS else input_roi.copy(),
     augmentations=augmentations,
     keys=(RAW, GT_LABELS),
     voxel_size=lambda key: input_resolution if key == RAW else (output_resolution if key == GT_LABELS else None))
