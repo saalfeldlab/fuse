@@ -13,6 +13,21 @@ from gunpowder import BatchFilter, Roi, ArrayKey, ArraySpec, Coordinate
 
 logger = logging.getLogger(__name__)
 
+
+def _upscale_transformation(transformation, output_shape, interpolate_order=1, dtype=np.float32):
+
+    input_shape = transformation.shape[1:]
+
+    dims = len(output_shape)
+    scale = tuple(float(s)/c for s,c in zip(output_shape, input_shape))
+
+    scaled = np.empty((dims,)+output_shape, dtype=dtype)
+    for d in range(dims):
+        scipy.ndimage.zoom(transformation[d], zoom=scale, output=scaled[d], order=interpolate_order, mode='nearest')
+
+    return scaled
+
+
 class ElasticAugment(BatchFilter):
     """
     jitter_sigma in world space
@@ -89,8 +104,8 @@ class ElasticAugment(BatchFilter):
 
         # create displacements in world space.
         # TODO displacement is inverse look up?
-        master_roi_snapped  = master_roi.snap_to_grid(self.voxel_size, mode='grow')
-        master_roi_voxels   = master_roi_snapped // self.voxel_size
+        master_roi_snapped = master_roi.snap_to_grid(self.voxel_size, mode='grow')
+        master_roi_voxels  = master_roi_snapped // self.voxel_size
         displacement_world = self.__create_transformation(master_roi_voxels.get_shape())
         logger.debug('world  displacement min/max=%s %s', [np.min(d) for d in displacement_world], [np.max(d) for d in displacement_world])
         mean = tuple(np.mean(d) for d in displacement_world)
@@ -219,7 +234,7 @@ class ElasticAugment(BatchFilter):
         if self.subsample > 1:
             logger.debug('upscaling subsampled transformation: %d', self.subsample)
             logger.debug('tf before upscale mean=%s std=%s', np.mean(transformation.reshape(transformation.shape[0], -1), axis=-1), np.std(transformation.reshape(transformation.shape[0], -1), axis=-1))
-            transformation = augment.upscale_transformation(
+            transformation = _upscale_transformation(
                     transformation,
                     target_shape)
             logger.debug('tf after upscale mean=%s std=%s', np.mean(transformation.reshape(transformation.shape[0], -1), axis=-1), np.std(transformation.reshape(transformation.shape[0], -1), axis=-1))
