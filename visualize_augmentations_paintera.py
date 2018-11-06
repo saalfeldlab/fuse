@@ -76,7 +76,7 @@ input_resolution  = (360, 36, 36)
 output_resolution = Coordinate((120, 108, 108))
 offset = (13640, 10932, 10932)
 
-output_shape = Coordinate((120, 100, 100)) * output_resolution
+output_shape = Coordinate((12, 10, 10)) * output_resolution
 output_offset = (13640 + 3600, 32796 + 36 + 10800, 32796 + 36 + 10800)
 
 input_shape = output_shape + (720, 0, 0)
@@ -93,7 +93,7 @@ augmentations = (
         control_point_spacing=(4, 40, 40),
         jitter_sigma=(0, 1 * 2 * 36, 0*2 * 36),
         rotation_interval=(0, 0*2*np.pi),
-        subsample=8,
+        subsample=1,
         seed=100),
 )
 
