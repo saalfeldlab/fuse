@@ -46,6 +46,7 @@ class ElasticAugment(BatchFilter):
 
     def prepare(self, request):
 
+        self.__sanity_check(request)
         total_roi  = request.get_total_roi()
         master_roi = self.__spatial_roi(total_roi)
         logger.debug("master roi is %s", master_roi)
@@ -73,6 +74,7 @@ class ElasticAugment(BatchFilter):
             logger.debug('preparing key %s with spec %s', key, spec)
 
             voxel_size            = spec.voxel_size if isinstance(spec, ArraySpec) else self.voxel_size
+            # Todo we should probably remove snap_to_grid, we already check spec.roi % voxel_size == 0
             target_roi            = self.__spatial_roi(spec.roi).snap_to_grid(voxel_size)
             self.target_rois[key] = target_roi
             target_roi_voxels     = target_roi // voxel_size
@@ -289,5 +291,23 @@ parameter, the output pixel value at index o was determined from the input image
         logger.debug("min/max of transformation after misalignment: " + str(bb_min) + "/" + str(bb_max))
 
     def __random_offset(self):
-
         return Coordinate((0,) + tuple(self.max_misalign - np.random.randint(0, 2*int(self.max_misalign)) for d in range(2)))
+
+
+    def __sanity_check(self, request):
+    def __sanity_check(selfs, request):
+
+        for key, spec in request.items():
+
+            logger.debug('Sanity checking key=%s spec=%s', key, spec)
+
+            assert key is not None, 'Key is none'
+            assert spec is not None, 'Spec is None for key %s'%key
+            assert spec.voxel_size is not None, 'Voxel size is None for key %s'%key
+            assert spec.roi is not None, 'Roi is None for key %s'%key
+            assert spec.roi.get_begin(), 'Offset is None for key %s'%key
+            assert spec.roi.get_shape(), 'Shape is None for key %s'%key
+            assert np.all(np.mod(self.__spatial_roi(spec.roi).get_begin(), spec.voxel_size) == 0), \
+                'begin of roi %s not snapped to voxel size %s for key %s'%(spec.roi.get_begin(), spec.voxel_size, key)
+            assert np.all(np.mod(self.__spatial_roi(spec.roi).get_shape(), spec.voxel_size) == 0), \
+                'shape of roi %s not snapped to voxel size %s for key %s'%(spec.roi.get_shape(), spec.voxel_size, key)
