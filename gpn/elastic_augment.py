@@ -14,6 +14,9 @@ from gunpowder import BatchFilter, Roi, ArrayKey, ArraySpec, Coordinate
 logger = logging.getLogger(__name__)
 
 class ElasticAugment(BatchFilter):
+    """
+    jitter_sigma in world space
+    """
 
     def __init__(
             self,
@@ -21,6 +24,7 @@ class ElasticAugment(BatchFilter):
             control_point_spacing,
             jitter_sigma,
             rotation_interval,
+            subsample=1,
             prob_slip=0,
             prob_shift=0,
             max_misalign=0,
@@ -32,11 +36,39 @@ class ElasticAugment(BatchFilter):
         self.jitter_sigma = jitter_sigma
         self.rotation_start = rotation_interval[0]
         self.rotation_max_amount = rotation_interval[1] - rotation_interval[0]
+        self.subsample = subsample
         self.prob_slip = prob_slip
         self.prob_shift = prob_shift
         self.max_misalign = max_misalign
         self.spatial_dims = spatial_dims
         self.seed = seed
+
+        logger.debug('initialized with parameters '
+                     'voxel_size=%s '
+                     'control_point_spacing=%s '
+                     'jitter_sigma=%s '
+                     'rotation_start=%f '
+                     'rotation_max_amount=%f '
+                     'subsample=%f '
+                     'prob_slip=%f '
+                     'prob_shift=%f '
+                     'max_misalign=%f '
+                     'spatial_dims=%d '
+                     'seed=%d',
+                     self.voxel_size,
+                     self.control_point_spacing,
+                     self.jitter_sigma,
+                     self.rotation_start,
+                     self.rotation_max_amount,
+                     self.subsample,
+                     self.prob_slip,
+                     self.prob_shift,
+                     self.max_misalign,
+                     self.spatial_dims,
+                     self.seed)
+
+        assert isinstance(self.subsample, int), 'subsample has to be integer'
+        assert self.subsample >= 1, 'subsample has to be strictly positive'
 
         self.transformations = {}
         self.target_rois = {}
@@ -47,20 +79,23 @@ class ElasticAugment(BatchFilter):
     def prepare(self, request):
 
         self.__sanity_check(request)
+
         total_roi  = request.get_total_roi()
         master_roi = self.__spatial_roi(total_roi)
-        logger.debug("master roi is %s", master_roi)
+        logger.debug("master roi is %s with voxel size %s", master_roi, self.voxel_size)
 
-        if (self.seed is not None):
+        if self.seed is not None:
             np.random.seed(self.seed)
 
+        # create displacements in world space.
+        # TODO displacement is inverse look up?
         master_roi_snapped  = master_roi.snap_to_grid(self.voxel_size, mode='grow')
         master_roi_voxels   = master_roi_snapped // self.voxel_size
-        master_tf           = self.__create_transformation(master_roi_voxels.get_shape())
-        master_displacement = self.__get_displacement(master_tf)
-        displacement_world  = np.empty(master_displacement.shape, dtype=np.float32)
-        for d in range(displacement_world.shape[0]):
-            displacement_world[d, ...] = master_displacement[d, ...] * self.voxel_size[d]
+        displacement_world = self.__create_transformation(master_roi_voxels.get_shape())
+        logger.debug('world  displacement min/max=%s %s', [np.min(d) for d in displacement_world], [np.max(d) for d in displacement_world])
+        mean = tuple(np.mean(d) for d in displacement_world)
+        std = tuple(np.std(d) for d in displacement_world)
+        logger.debug('mean=%s std=%s', mean, std)
 
         self.transformations.clear()
         self.target_rois.clear()
@@ -74,25 +109,40 @@ class ElasticAugment(BatchFilter):
             logger.debug('preparing key %s with spec %s', key, spec)
 
             voxel_size            = spec.voxel_size if isinstance(spec, ArraySpec) else self.voxel_size
-            # Todo we should probably remove snap_to_grid, we already check spec.roi % voxel_size == 0
+            # Todo we could probably remove snap_to_grid, we already check spec.roi % voxel_size == 0
             target_roi            = self.__spatial_roi(spec.roi).snap_to_grid(voxel_size)
             self.target_rois[key] = target_roi
             target_roi_voxels     = target_roi // voxel_size
 
             logger.debug('target roi is %s, request roi is %s, for key %s with voxel size %s', target_roi, spec.roi, key, voxel_size)
 
+            # get scale and offset to transform/interpolate master displacement to current spec
             vs_ratio     = np.array([vs1/vs2 for vs1, vs2 in zip(voxel_size, self.voxel_size)])
-            offset_world = (target_roi - master_roi_snapped.get_begin()).get_begin()
-            scale        = vs_ratio#1.0 / vs_ratio
-            offset       = -offset_world / self.voxel_size#offset_world / voxel_size
+            offset_world = target_roi.get_begin() - master_roi_snapped.get_begin()
+            scale        = vs_ratio
+            offset       = offset_world / self.voxel_size
 
             logger.debug('scale %s and offset %s for key %s', scale, offset, key)
 
-            displacements = self.__affine(displacement_world, scale, offset, target_roi_voxels)
+            # need to pass inverse transform, hence 1.0/scale and -offset
+            displacements = self.__affine(displacement_world, 1.0/scale, -offset, target_roi_voxels)
+            absolute_world = np.stack(np.meshgrid(*[np.arange(start=b, stop=b+e, step=vs, dtype=np.float64) for b, e, vs in zip(target_roi.get_begin(), target_roi.get_shape(), voxel_size)], indexing='ij'))
+            absolute_world += displacements
+
+            logger.debug('displacement for key %s mean=%s std=%s', key, tuple(np.mean(d) for d in displacements), tuple(np.std(d) for d in displacements))
+
+            # scale displacements from world displacements into voxel space and make absolute coordinates from that
             self.__scale_displacements(displacements, voxel_size)
             absolute_positions = self.__as_absolute_positions_in_voxels(displacements)
             minimal_containing_roi_voxels = self.__get_minimal_containing_roi(absolute_positions)
+            m = np.asarray([np.min(a) for a in absolute_world])
+            M = np.asarray([np.max(a) for a in absolute_world])
+            s = np.ceil(M - m)
+            logger.debug('Creating source roi %s %s %s', m, M, s)
             source_roi = minimal_containing_roi_voxels * voxel_size + target_roi.get_begin()
+            logger.debug('min max displacement: %s %s', [np.min(a) for a in displacement_world], [np.max(a) for a in displacement_world])
+            logger.debug('min max displacement: %s %s', [np.min(a) for a in displacements], [np.max(a) for a in displacements])
+            logger.debug('min/shape in voxel space=(%s %s) in world space=(%s %s)', minimal_containing_roi_voxels.get_begin(), minimal_containing_roi_voxels.get_shape(), (minimal_containing_roi_voxels * voxel_size).get_begin(), (minimal_containing_roi_voxels * voxel_size).get_shape())
 
             self.transformations[key] = absolute_positions
 
@@ -136,29 +186,46 @@ class ElasticAugment(BatchFilter):
             # restore original ROIs
             array.spec.roi = request[key].roi
 
-
-
     def __create_transformation(self, target_shape):
 
-        transformation = augment.create_identity_transformation(
-                target_shape,
-                subsample=1)
+        logger.debug('creating displacement for shape %s, subsample %d', target_shape, self.subsample)
+
+        if self.subsample > 1:
+            identity_shape = tuple(max(1, int(s / self.subsample)) for s in target_shape)
+        else:
+            identity_shape = target_shape
+
+        transformation = np.zeros((len(target_shape),) + identity_shape, dtype=np.float32)
         # needs control points in world coordinates
         # TODO add these transformations as well
-        if sum(self.jitter_sigma) > 0:
-            transformation += augment.create_elastic_transformation(
+        if np.any(np.asarray(self.jitter_sigma) > 0):
+            logger.debug('Jittering with sigma=%s and spacing=%s', self.jitter_sigma, self.control_point_spacing)
+            elastic = augment.create_elastic_transformation(
                     target_shape,
                     self.control_point_spacing,
                     self.jitter_sigma,
-                    subsample=1)
+                    subsample=self.subsample)
+            logger.debug('elastic mean=%s std=%s', np.mean(elastic.reshape(elastic.shape[0], -1), axis=-1), np.std(elastic.reshape(elastic.shape[0], -1), axis=-1))
+            transformation += elastic
         rotation = np.random.random()*self.rotation_max_amount + self.rotation_start
+        logger.debug('rotation is %f', rotation)
         if rotation != 0:
+            logger.debug('rotating with rotation=%f', rotation)
             transformation += augment.create_rotation_transformation(
                     target_shape,
                     rotation,
-                    subsample=1)
+                    subsample=self.subsample)
+
+        if self.subsample > 1:
+            logger.debug('upscaling subsampled transformation: %d', self.subsample)
+            logger.debug('tf before upscale mean=%s std=%s', np.mean(transformation.reshape(transformation.shape[0], -1), axis=-1), np.std(transformation.reshape(transformation.shape[0], -1), axis=-1))
+            transformation = augment.upscale_transformation(
+                    transformation,
+                    target_shape)
+            logger.debug('tf after upscale mean=%s std=%s', np.mean(transformation.reshape(transformation.shape[0], -1), axis=-1), np.std(transformation.reshape(transformation.shape[0], -1), axis=-1))
 
         if self.prob_slip + self.prob_shift > 0:
+            logger.debug('misaligning')
             self.__misalign(transformation)
 
         return transformation
@@ -277,25 +344,16 @@ parameter, the output pixel value at index o was determined from the input image
 
         logger.debug("misaligning sections with " + str(shifts))
 
-        dims = 3
-        bb_min = tuple(int(math.floor(transformation[d].min())) for d in range(dims))
-        bb_max = tuple(int(math.ceil(transformation[d].max())) + 1 for d in range(dims))
-        logger.debug("min/max of transformation: " + str(bb_min) + "/" + str(bb_max))
-
         for z in range(num_sections):
             transformation[1][z,:,:] += shifts[z][1]
             transformation[2][z,:,:] += shifts[z][2]
 
-        bb_min = tuple(int(math.floor(transformation[d].min())) for d in range(dims))
-        bb_max = tuple(int(math.ceil(transformation[d].max())) + 1 for d in range(dims))
-        logger.debug("min/max of transformation after misalignment: " + str(bb_min) + "/" + str(bb_max))
 
     def __random_offset(self):
         return Coordinate((0,) + tuple(self.max_misalign - np.random.randint(0, 2*int(self.max_misalign)) for d in range(2)))
 
 
     def __sanity_check(self, request):
-    def __sanity_check(selfs, request):
 
         for key, spec in request.items():
 

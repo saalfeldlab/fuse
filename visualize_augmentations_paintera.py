@@ -89,18 +89,21 @@ input_roi  = Roi(offset=output_roi.snap_to_grid(output_resolution).get_begin() -
 
 augmentations = (
     ElasticAugment(
-        voxel_size=tuple(8 * 9 * vs for vs in (40, 4, 4)),
+        voxel_size=(360, 36, 36),
         control_point_spacing=(4, 40, 40),
-        jitter_sigma=(0, 2, 2),
+        jitter_sigma=(0, 1 * 2 * 36, 0*2 * 36),
         rotation_interval=(0, 0*2*np.pi),
+        subsample=8,
         seed=100),
 )
+
+keys = (RAW, GT_LABELS)[:1]
 
 batch, snapshot = gpn.util.run_augmentations(
     data_providers=data_providers,
     roi=lambda key: output_roi.copy() if key == GT_LABELS else input_roi.copy(),
     augmentations=augmentations,
-    keys=(RAW, GT_LABELS),
+    keys=keys,
     voxel_size=lambda key: input_resolution if key == RAW else (output_resolution if key == GT_LABELS else None))
 
 jnius_config.add_options('-Xmx{}'.format(args.max_heap_size))
@@ -116,11 +119,8 @@ pbv = viewer.baseView
 scene, stage = payntera.jfx.start_stage(viewer.paneWithStatus.getPane())
 payntera.jfx.invoke_on_jfx_application_thread(lambda: pbv.orthogonalViews().setScreenScales([0.3, 0.1, 0.03]))
 
-keys_to_show = (
-    RAW,
-    GT_LABELS)
-snapshot_states = add_to_viewer(snapshot, keys=keys_to_show, name=lambda key: '%s-snapshot'%key.identifier)
-states          = add_to_viewer(batch, keys=keys_to_show)
+snapshot_states = add_to_viewer(snapshot, keys=keys, name=lambda key: '%s-snapshot'%key.identifier)
+states          = add_to_viewer(batch, keys=keys)
 
 viewer.keyTracker.installInto(scene)
 scene.addEventFilter(autoclass('javafx.scene.input.MouseEvent').ANY, viewer.mouseTracker)

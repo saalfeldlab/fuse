@@ -18,6 +18,8 @@ def run_augmentations(
     for key in keys:
         request[key] = ArraySpec(roi(key).snap_to_grid(voxel_size(key)), voxel_size=voxel_size(key))
 
+    logger.debug('Requesting batch with request %s', request)
+
     data_sources = tuple(provider for provider in data_providers)
 
     snapshot = SnapshotAsDict()
@@ -27,10 +29,9 @@ def run_augmentations(
     for augmentation in augmentations:
         pipeline += augmentation
 
-
     with build(pipeline) as b:
         logging.debug("submitting request %s", request)
         batch = b.request_batch(request)
 
-    logger.debug("Got snapshots: %s", snapshot.snapshots)
+    logger.debug("Got snapshots from request %s: %s", request, snapshot.snapshots)
     return batch, snapshot.snapshots[0]
