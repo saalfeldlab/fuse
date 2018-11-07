@@ -77,28 +77,29 @@ input_resolution  = (360, 36, 36)
 output_resolution = Coordinate((120, 108, 108))
 offset = (13640, 10932, 10932)
 
-output_shape = Coordinate((12, 10, 10)) * output_resolution
-output_offset = (13640 + 3600, 32796 + 36 + 10800, 32796 + 36 + 10800)
-
-input_shape = output_shape + (720, 0, 0)
-input_offset = Coordinate(output_offset) - input_resolution - (0, 72, 72)
+output_shape = Coordinate((12, 100, 100)) * output_resolution
+output_offset = (13320 + 3600, 32796 + 36 + 10800, 32796 + 36 + 10800)
 
 overhang = Coordinate((360, 108, 108)) * 16
 
+input_shape = output_shape + overhang * 2
+input_offset = Coordinate(output_offset) - overhang
+
+
 output_roi = Roi(offset=output_offset, shape=output_shape)
-input_roi  = Roi(offset=output_roi.snap_to_grid(output_resolution).get_begin() - overhang, shape=output_roi.snap_to_grid(output_resolution).get_shape() + overhang * 2)
+input_roi  = Roi(offset=input_offset, shape=input_shape)
 
 augmentations = (
     ElasticAugment(
-        voxel_size=(360, 79, 47),
+        voxel_size=(123, 11, 7),
         control_point_spacing=(4, 40, 40),
         jitter_sigma=(0, 1 * 2 * 36, 1 * 2 * 36),
         rotation_interval=(0, 0*2*np.pi),
-        subsample=1,
+        subsample=8,
         seed=100),
 )
 
-keys = (RAW, GT_LABELS)[:1]
+keys = (RAW, GT_LABELS)[:]
 
 batch, snapshot = gpn.util.run_augmentations(
     data_providers=data_providers,

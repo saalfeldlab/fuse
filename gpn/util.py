@@ -1,6 +1,5 @@
-from gpn.duplicate import Duplicate
 from gpn.snapshot_as_dict import SnapshotAsDict
-from gunpowder import ArrayKey, BatchRequest, build, RandomLocation, RandomProvider, ArraySpec, logging
+from gunpowder import ArrayKey, BatchRequest, build, RandomProvider, ArraySpec, logging
 
 RAW       = ArrayKey('RAW')
 GT_LABELS = ArrayKey('GT_LABELS')
@@ -30,7 +29,7 @@ def run_augmentations(
         pipeline += augmentation
 
     with build(pipeline) as b:
-        logging.debug("submitting request %s", request)
+        logging.info("submitting request %s", request)
         batch = b.request_batch(request)
 
     logger.debug("Got snapshots from request %s: %s", request, snapshot.snapshots)

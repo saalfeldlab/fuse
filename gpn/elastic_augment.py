@@ -111,6 +111,7 @@ class ElasticAugment(BatchFilter):
         pass
 
     def prepare(self, request):
+        logger.debug('%s preparing request %s', type(self).__name__, request)
 
         self.__sanity_check(request)
 
@@ -126,7 +127,6 @@ class ElasticAugment(BatchFilter):
         master_roi_snapped = master_roi.snap_to_grid(self.voxel_size, mode='grow')
         master_roi_voxels  = master_roi_snapped // self.voxel_size
         master_transform   = self.__create_transformation(master_roi_voxels.get_shape(), offset=master_roi_snapped.get_begin())
-        logger.debug('master_transform statistics %s %s %s %s', tuple(map(np.mean, master_transform)), tuple(map(np.std, master_transform)), tuple(map(np.min, master_transform)), tuple(map(np.max, master_transform)))
 
         self.transformations.clear()
         self.target_rois.clear()
@@ -140,6 +140,7 @@ class ElasticAugment(BatchFilter):
             logger.debug('preparing key %s with spec %s', key, spec)
 
             voxel_size            = spec.voxel_size if isinstance(spec, ArraySpec) else self.voxel_size
+            logger.debug('voxel size is %s for key %s', voxel_size, key)
             # Todo we could probably remove snap_to_grid, we already check spec.roi % voxel_size == 0
             target_roi            = self.__spatial_roi(spec.roi).snap_to_grid(voxel_size)
             self.target_rois[key] = target_roi
@@ -156,7 +157,7 @@ class ElasticAugment(BatchFilter):
             logger.debug('scale %s and offset %s for key %s', scale, offset, key)
 
             # need to pass inverse transform, hence -offset
-            transform    = self.__affine(master_transform, scale, -offset, target_roi_voxels)
+            transform    = self.__affine(master_transform, scale, offset, target_roi_voxels)
             logger.debug('key %s transform statistics %s %s %s %s', key, tuple(map(np.mean, transform)), tuple(map(np.std, transform)), tuple(map(np.min, transform)), tuple(map(np.max, transform)))
             source_roi = self.__get_source_roi(transform).snap_to_grid(voxel_size)
             logger.debug('source roi for key %s is %s', key, source_roi)
@@ -408,6 +409,7 @@ parameter, the output pixel value at index o was determined from the input image
         # get bounding box of needed data for transformation
         bb_min = Coordinate(int(math.floor(transformation[d].min())) for d in range(dims))
         bb_max = Coordinate(int(math.ceil(transformation[d].max())) + 1 for d in range(dims))
+        logger.debug('getting source roi with min=%s and max=%s', bb_min, bb_max)
 
         # create roi sufficiently large to feed transformation
         source_roi = Roi(
