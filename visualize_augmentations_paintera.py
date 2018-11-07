@@ -90,9 +90,9 @@ input_roi  = Roi(offset=output_roi.snap_to_grid(output_resolution).get_begin() -
 
 augmentations = (
     ElasticAugment(
-        voxel_size=(360, 36, 36),
+        voxel_size=(360, 79, 47),
         control_point_spacing=(4, 40, 40),
-        jitter_sigma=(0, 1 * 2 * 36, 1*2 * 36),
+        jitter_sigma=(0, 1 * 2 * 36, 1 * 2 * 36),
         rotation_interval=(0, 0*2*np.pi),
         subsample=1,
         seed=100),

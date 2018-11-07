@@ -155,8 +155,8 @@ class ElasticAugment(BatchFilter):
 
             logger.debug('scale %s and offset %s for key %s', scale, offset, key)
 
-            # need to pass inverse transform, hence 1.0/scale and -offset
-            transform    = self.__affine(master_transform, 1.0/scale, -offset, target_roi_voxels)
+            # need to pass inverse transform, hence -offset
+            transform    = self.__affine(master_transform, scale, -offset, target_roi_voxels)
             logger.debug('key %s transform statistics %s %s %s %s', key, tuple(map(np.mean, transform)), tuple(map(np.std, transform)), tuple(map(np.min, transform)), tuple(map(np.max, transform)))
             source_roi = self.__get_source_roi(transform).snap_to_grid(voxel_size)
             logger.debug('source roi for key %s is %s', key, source_roi)
