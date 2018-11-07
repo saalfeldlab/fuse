@@ -91,7 +91,7 @@ augmentations = (
     ElasticAugment(
         voxel_size=(360, 36, 36),
         control_point_spacing=(4, 40, 40),
-        jitter_sigma=(0, 1 * 2 * 36, 0*2 * 36),
+        jitter_sigma=(0, 1 * 2 * 1, 0*2 * 1),
         rotation_interval=(0, 0*2*np.pi),
         subsample=1,
         seed=100),
