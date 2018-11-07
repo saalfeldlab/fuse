@@ -13,17 +13,21 @@ from gunpowder import BatchFilter, Roi, ArrayKey, ArraySpec, Coordinate
 
 logger = logging.getLogger(__name__)
 
-def _create_identity_transformation(shape, voxel_size=None, subsample=1):
+def _create_identity_transformation(shape, voxel_size=None, offset=None, subsample=1):
 
     dims = len(shape)
+
     if voxel_size is None:
         voxel_size = Coordinate((1,) * dims)
+
+    if offset is None:
+        offset = Coordinate((0,) * dims)
     subsample_shape = tuple(max(1,int(s/subsample)) for s in shape)
     step_width = tuple(float(shape[d]-1)/(subsample_shape[d]-1) if subsample_shape[d] > 1 else 1 for d in range(dims))
     step_width = tuple(s*vs for s, vs in zip(step_width, voxel_size))
 
     axis_ranges = (
-            np.arange(subsample_shape[d], dtype=np.float32)*step_width[d]
+            np.arange(subsample_shape[d], dtype=np.float32)*step_width[d] + offset[d]
             for d in range(dims)
     )
     return np.array(np.meshgrid(*axis_ranges, indexing='ij'), dtype=np.float32)
@@ -121,11 +125,8 @@ class ElasticAugment(BatchFilter):
         # TODO displacement is inverse look up?
         master_roi_snapped = master_roi.snap_to_grid(self.voxel_size, mode='grow')
         master_roi_voxels  = master_roi_snapped // self.voxel_size
-        master_transform   = self.__create_transformation(master_roi_voxels.get_shape())
-        # logger.debug('world  displacement min/max=%s %s', [np.min(d) for d in displacement_world], [np.max(d) for d in displacement_world])
-        # mean = tuple(np.mean(d) for d in displacement_world)
-        # std = tuple(np.std(d) for d in displacement_world)
-        # logger.debug('mean=%s std=%s', mean, std)
+        master_transform   = self.__create_transformation(master_roi_voxels.get_shape(), offset=master_roi_snapped.get_begin())
+        logger.debug('master_transform statistics %s %s %s %s', tuple(map(np.mean, master_transform)), tuple(map(np.std, master_transform)), tuple(map(np.min, master_transform)), tuple(map(np.max, master_transform)))
 
         self.transformations.clear()
         self.target_rois.clear()
@@ -156,36 +157,22 @@ class ElasticAugment(BatchFilter):
 
             # need to pass inverse transform, hence 1.0/scale and -offset
             transform    = self.__affine(master_transform, 1.0/scale, -offset, target_roi_voxels)
-            self.__shift_transformation(offset_world, transform)
-            displacement = transform - _create_identity_transformation(target_roi_voxels.get_shape(), voxel_size=voxel_size)
-            for d, vs in zip(displacement, voxel_size):
-                d /= vs
-            transform_in_pixels = _create_identity_transformation(target_roi_voxels.get_shape()) + displacement
+            logger.debug('key %s transform statistics %s %s %s %s', key, tuple(map(np.mean, transform)), tuple(map(np.std, transform)), tuple(map(np.min, transform)), tuple(map(np.max, transform)))
+            source_roi = self.__get_source_roi(transform).snap_to_grid(voxel_size)
+            logger.debug('source roi for key %s is %s', key, source_roi)
+            logger.debug('min/max of transform for key %s is %s %s', key, tuple(map(np.min, transform)), tuple(map(np.max, transform)))
+            self.__shift_transformation(-target_roi.get_begin(), transform)
+            logger.debug('key %s shifted transform statistics %s %s %s %s', key, tuple(map(np.mean, transform)), tuple(map(np.std, transform)), tuple(map(np.min, transform)), tuple(map(np.max, transform)))
+            logger.debug('key %s transform statistics after shift %s %s', key, tuple(map(np.mean, transform)), tuple(map(np.std, transform)))
+            logger.debug('source roi vs target roi %s %s', source_roi, target_roi)
+            for d, (vs, b1, b2) in enumerate(zip(voxel_size, target_roi.get_begin(), source_roi.get_begin())):
+                pixel_offset = (b1 - b2) / vs
+                logger.debug('pixel offset for dimension %d: %f', d, pixel_offset)
+                transform[d] = transform[d] / vs + pixel_offset
 
-            # absolute_world = np.stack(np.meshgrid(*[np.arange(start=b, stop=b+e, step=vs, dtype=np.float64) for b, e, vs in zip(target_roi.get_begin(), target_roi.get_shape(), voxel_size)], indexing='ij'))
-            # absolute_world += displacements
+            logger.debug('min/max of transform for key %s is %s %s', key, tuple(map(np.min, transform)), tuple(map(np.max, transform)))
 
-            logger.debug('displacement for key %s mean=%s std=%s', key, tuple(np.mean(d) for d in transform), tuple(np.std(d) for d in displacements))
-
-            # scale displacements from world displacements into voxel space and make absolute coordinates from that
-            # self.__scale_displacements(displacements, voxel_size)
-            # absolute_positions = self.__as_absolute_positions_in_voxels(displacements)
-            # minimal_containing_roi_voxels = self.__get_minimal_containing_roi(absolute_positions)
-            # m = np.asarray([np.min(a) for a in absolute_world])
-            # M = np.asarray([np.max(a) for a in absolute_world])
-            # s = np.ceil(M - m)
-            # logger.debug('Creating source roi %s %s %s', m, M, s)
-            # source_roi = minimal_containing_roi_voxels * voxel_size + target_roi.get_begin()
-            # logger.debug('min max displacement: %s %s', [np.min(a) for a in displacement_world], [np.max(a) for a in displacement_world])
-            # logger.debug('min max displacement: %s %s', [np.min(a) for a in displacements], [np.max(a) for a in displacements])
-            # logger.debug('min/shape in voxel space=(%s %s) in world space=(%s %s)', minimal_containing_roi_voxels.get_begin(), minimal_containing_roi_voxels.get_shape(), (minimal_containing_roi_voxels * voxel_size).get_begin(), (minimal_containing_roi_voxels * voxel_size).get_shape())
-            #
-            # self.transformations[key] = absolute_positions
-            # m    = [np.min(t)  for t in absolute_positions]
-            # M    = [np.max(t)  for t in absolute_positions]
-            # mean = [np.mean(t) for t in absolute_positions]
-            # std  = [np.std(t)  for t in absolute_positions]
-            # logger.debug('transformation for key %s: %s %s %s %s', key, m, M, mean, std)
+            self.transformations[key] = transform
 
             # update upstream request
             spec.roi = Roi(
@@ -211,6 +198,7 @@ class ElasticAugment(BatchFilter):
             # reshape array data into (channels,) + spatial dims
             shape = array.data.shape
             data = array.data.reshape((-1,) + shape[-self.spatial_dims:])
+            logger.debug('key %s transform statistics %s %s', key, tuple(map(np.mean, self.transformations[key])), tuple(map(np.std, self.transformations[key])))
 
             # apply transformation on each channel
             data = np.array([
@@ -227,7 +215,7 @@ class ElasticAugment(BatchFilter):
             # restore original ROIs
             array.spec.roi = request[key].roi
 
-    def __create_transformation(self, target_shape):
+    def __create_transformation(self, target_shape, offset):
 
         logger.debug('creating displacement for shape %s, subsample %d', target_shape, self.subsample)
 
@@ -239,7 +227,7 @@ class ElasticAugment(BatchFilter):
         # transformation = np.zeros((len(target_shape),) + identity_shape, dtype=np.float32)
         # needs control points in world coordinates
         # TODO add these transformations as well
-        transformation = _create_identity_transformation(target_shape, subsample=self.subsample, voxel_size=self.voxel_size)
+        transformation = _create_identity_transformation(target_shape, subsample=self.subsample, voxel_size=self.voxel_size, offset=offset)
         if np.any(np.asarray(self.jitter_sigma) > 0):
             logger.debug('Jittering with sigma=%s and spacing=%s', self.jitter_sigma, self.control_point_spacing)
             elastic = augment.create_elastic_transformation(
@@ -335,6 +323,7 @@ parameter, the output pixel value at index o was determined from the input image
         return source_roi
 
     def __shift_transformation(self, shift, transformation):
+        logger.debug('shifting transform by %s', shift)
         for d in range(transformation.shape[0]):
             transformation[d] += shift[d]
 
@@ -411,3 +400,19 @@ parameter, the output pixel value at index o was determined from the input image
                 'begin of roi %s not snapped to voxel size %s for key %s'%(spec.roi.get_begin(), spec.voxel_size, key)
             assert np.all(np.mod(self.__spatial_roi(spec.roi).get_shape(), spec.voxel_size) == 0), \
                 'shape of roi %s not snapped to voxel size %s for key %s'%(spec.roi.get_shape(), spec.voxel_size, key)
+
+    def __get_source_roi(self, transformation):
+
+        dims = transformation.shape[0]
+
+        # get bounding box of needed data for transformation
+        bb_min = Coordinate(int(math.floor(transformation[d].min())) for d in range(dims))
+        bb_max = Coordinate(int(math.ceil(transformation[d].max())) + 1 for d in range(dims))
+
+        # create roi sufficiently large to feed transformation
+        source_roi = Roi(
+                bb_min,
+                bb_max - bb_min
+        )
+
+        return source_roi

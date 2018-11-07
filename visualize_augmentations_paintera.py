@@ -56,6 +56,7 @@ args = parser.parse_args()
 
 data_providers = []
 data_dir = '/groups/saalfeld/home/hanslovskyp/experiments/quasi-isotropic/data'
+data_dir = os.path.expanduser('~/Dropbox/cremi-upsampled/')
 file_pattern = 'sample_A_padded_20160501-2-additional-sections-fixed-offset.h5'
 file_pattern = 'sample_B_padded_20160501-2-additional-sections-fixed-offset.h5'
 file_pattern = 'sample_C_padded_20160501-2-additional-sections-fixed-offset.h5'
@@ -91,7 +92,7 @@ augmentations = (
     ElasticAugment(
         voxel_size=(360, 36, 36),
         control_point_spacing=(4, 40, 40),
-        jitter_sigma=(0, 1 * 2 * 1, 0*2 * 1),
+        jitter_sigma=(0, 1 * 2 * 36, 1*2 * 36),
         rotation_interval=(0, 0*2*np.pi),
         subsample=1,
         seed=100),
