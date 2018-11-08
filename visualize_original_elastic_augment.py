@@ -1,6 +1,6 @@
 import logging
-logging.getLogger('gunpowder.nodes.elastic_augment').setLevel(logging.DEBUG)
-logging.getLogger('gpn.util').setLevel(logging.DEBUG)
+# logging.getLogger('gunpowder.nodes.elastic_augment').setLevel(logging.DEBUG)
+# logging.getLogger('gpn.util').setLevel(logging.DEBUG)
 
 import glob
 import os
@@ -90,7 +90,7 @@ augmentations = (
     ElasticAugment(
         control_point_spacing=(4, 40, 40),
         #jitter_sigma=(0, 1 * 2 * 36, 0 * 36),
-        jitter_sigma=(0, 2, 0),
+        jitter_sigma=(0, 2, 2),
         rotation_interval=(0, 0 * 2 * np.pi),
         subsample=1),
 )

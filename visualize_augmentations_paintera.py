@@ -1,6 +1,7 @@
-import logging
-logging.getLogger('gpn.elastic_augment').setLevel(logging.DEBUG)
-logging.getLogger('gpn.util').setLevel(logging.DEBUG)
+# uncomment to see debug output
+# import logging
+# logging.getLogger('gpn.elastic_augment').setLevel(logging.DEBUG)
+# logging.getLogger('gpn.util').setLevel(logging.DEBUG)
 
 import glob
 import os
@@ -11,8 +12,6 @@ import gpn.util
 import jnius_config
 from gpn.elastic_augment import ElasticAugment
 from gunpowder import Hdf5Source, Roi, Coordinate
-
-# logging.basicConfig(level = logging.DEBUG)
 
 RAW       = gpn.util.RAW
 GT_LABELS = gpn.util.GT_LABELS
@@ -56,7 +55,7 @@ args = parser.parse_args()
 
 data_providers = []
 data_dir = '/groups/saalfeld/home/hanslovskyp/experiments/quasi-isotropic/data'
-data_dir = os.path.expanduser('~/Dropbox/cremi-upsampled/')
+# data_dir = os.path.expanduser('~/Dropbox/cremi-upsampled/')
 file_pattern = 'sample_A_padded_20160501-2-additional-sections-fixed-offset.h5'
 file_pattern = 'sample_B_padded_20160501-2-additional-sections-fixed-offset.h5'
 file_pattern = 'sample_C_padded_20160501-2-additional-sections-fixed-offset.h5'
@@ -91,7 +90,7 @@ input_roi  = Roi(offset=input_offset, shape=input_shape)
 
 augmentations = (
     ElasticAugment(
-        voxel_size=(123, 11, 7),
+        voxel_size=(123, 43, 37),
         control_point_spacing=(4, 40, 40),
         jitter_sigma=(0, 1 * 2 * 36, 1 * 2 * 36),
         rotation_interval=(0, 0*2*np.pi),
