@@ -289,51 +289,9 @@ parameter, the output pixel value at index o was determined from the input image
                 mode='nearest')
         return output
 
-    def _get_minimal_containing_roi(self, transformation):
-
-        dims = transformation.shape[0]
-
-        # get bounding box of needed data for transformation
-        bb_min = Coordinate(int(math.floor(transformation[d].min())) for d in range(dims))
-        bb_max = Coordinate(int(math.ceil(transformation[d].max())) + 1 for d in range(dims))
-
-        logger.debug('Got bb_min=%s and bb_max=%s', bb_min, bb_max)
-
-        # create roi sufficiently large to feed transformation
-        source_roi = Roi(
-                bb_min,
-                bb_max - bb_min
-        )
-
-        return source_roi
-
     def _shift_transformation(self, shift, transformation):
         for d in range(transformation.shape[0]):
             transformation[d] += shift[d]
-
-    def __get_displacement(self, transform, dtype=np.float32):
-        logger.debug('getting displacment from absolute transform with shape %s', transform.shape)
-        displacement = np.empty(transform.shape, dtype=dtype)
-        positions = np.meshgrid(*[np.arange(d) for d in transform.shape[1:]], indexing='ij')
-        for d in range(transform.shape[0]):
-            logger.debug(
-                'getting displacement from absolute transform for dim %d: transform shape %s positions shape %s',
-                d,
-                transform[d, ...].shape,
-                positions[d].shape)
-            displacement[d, ...] = transform[d, ...] - positions[d]
-        return displacement
-
-    def _scale_displacements(self, displacements, voxel_size):
-        for d in range(displacements.shape[0]):
-            displacements[d, ...] = displacements[d, ...] / voxel_size[d]
-
-    def _as_absolute_positions_in_voxels(self, displacements, dtype=np.float32):
-        positions = np.meshgrid(*[np.arange(d) for d in displacements.shape[1:]], indexing='ij')
-        absolute  = np.empty(displacements.shape, dtype=dtype)
-        for d in range(displacements.shape[0]):
-            absolute[d, ...] = positions[d] + displacements[d, ...]
-        return absolute
 
     def _misalign(self, transformation):
 
@@ -362,11 +320,6 @@ parameter, the output pixel value at index o was determined from the input image
         for z in range(num_sections):
             transformation[1][z,:,:] += shifts[z][1]
             transformation[2][z,:,:] += shifts[z][2]
-
-
-    def _random_offset(self):
-        return Coordinate((0,) + tuple(self.max_misalign - np.random.randint(0, 2*int(self.max_misalign)) for d in range(2)))
-
 
     def _sanity_check(self, request):
 
