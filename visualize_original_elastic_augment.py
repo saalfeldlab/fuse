@@ -73,16 +73,17 @@ input_resolution  = (360, 36, 36)
 output_resolution = Coordinate((120, 108, 108))
 offset = (13640, 10932, 10932)
 
-output_shape = Coordinate((12, 10, 10)) * output_resolution
-output_offset = (13640 + 3600, 32796 + 36 + 10800, 32796 + 36 + 10800)
-
-input_shape = output_shape + (720, 0, 0)
-input_offset = Coordinate(output_offset) - input_resolution - (0, 72, 72)
+output_shape = Coordinate((12, 100, 100)) * output_resolution
+output_offset = (13320 + 3600, 32796 + 36 + 10800, 32796 + 36 + 10800)
 
 overhang = Coordinate((360, 108, 108)) * 16
 
+input_shape = output_shape + overhang * 2
+input_offset = Coordinate(output_offset) - overhang
+
+
 output_roi = Roi(offset=output_offset, shape=output_shape)
-input_roi  = Roi(offset=output_roi.snap_to_grid(output_resolution).get_begin() - overhang, shape=output_roi.snap_to_grid(output_resolution).get_shape() + overhang * 2)
+input_roi  = Roi(offset=input_offset, shape=input_shape)
 
 augmentations = (
     # SimpleAugment(transpose_only=[1,2]),
@@ -91,7 +92,7 @@ augmentations = (
         control_point_spacing=(4, 40, 40),
         #jitter_sigma=(0, 1 * 2 * 36, 0 * 36),
         jitter_sigma=(0, 2, 2),
-        rotation_interval=(0, 0 * 2 * np.pi),
+        rotation_interval=(2 * np.pi / 8, 2 * np.pi / 8),
         subsample=1),
 )
 

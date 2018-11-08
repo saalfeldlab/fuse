@@ -1,7 +1,7 @@
 # uncomment to see debug output
-# import logging
-# logging.getLogger('gpn.elastic_augment').setLevel(logging.DEBUG)
-# logging.getLogger('gpn.util').setLevel(logging.DEBUG)
+import logging
+logging.getLogger('gpn.elastic_augment').setLevel(logging.DEBUG)
+logging.getLogger('gpn.util').setLevel(logging.DEBUG)
 
 import glob
 import os
@@ -93,7 +93,7 @@ augmentations = (
         voxel_size=(123, 43, 37),
         control_point_spacing=(4, 40, 40),
         jitter_sigma=(0, 1 * 2 * 36, 1 * 2 * 36),
-        rotation_interval=(0, 0*2*np.pi),
+        rotation_interval=(2 * np.pi / 8, 0*2*np.pi),
         subsample=8,
         seed=100),
 )

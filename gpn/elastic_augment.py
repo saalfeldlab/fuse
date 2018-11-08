@@ -48,6 +48,46 @@ def _upscale_transformation(transformation, output_shape, interpolate_order=1, d
 
     return scaled
 
+def _rotate(point, angle):
+
+    res = np.array(point)
+    res[0] =  math.sin(angle)*point[1] + math.cos(angle)*point[0]
+    res[1] = -math.sin(angle)*point[0] + math.cos(angle)*point[1]
+
+    return res
+
+
+def _create_rotation_transformation(shape, angle, subsample=1, voxel_size=None):
+
+    dims = len(shape)
+    subsample_shape = tuple(max(1,int(s/subsample)) for s in shape)
+    control_points = (2,)*dims
+
+    if voxel_size is None:
+        voxel_size = Coordinate((1,) * dims)
+
+    # map control points to world coordinates
+    control_point_scaling_factor = tuple(float(s-1) * vs for s, vs in zip(shape, voxel_size))
+
+    # rotate control points
+    center = np.array([0.5*(d-1) for d in shape])
+
+    # print("Creating rotation transformation with:")
+    # print("\tangle : " + str(angle))
+    # print("\tcenter: " + str(center))
+
+    control_point_offsets = np.zeros((dims,) + control_points, dtype=np.float32)
+    for control_point in np.ndindex(control_points):
+
+        point = np.array(control_point)*control_point_scaling_factor
+        center_offset = np.array([p-c for c,p in zip(center, point)], dtype=np.float32)
+        rotated_offset = np.array(center_offset)
+        rotated_offset[-2:] = _rotate(center_offset[-2:], angle)
+        displacement = rotated_offset - center_offset
+        control_point_offsets[(slice(None),) + control_point] += displacement
+
+    return augment.upscale_transformation(control_point_offsets, subsample_shape)
+
 
 def _min_max_mean_std(ndarray, prefix=''):
     def mins (x): return tuple(map(np.min,  x))
@@ -233,9 +273,10 @@ class ElasticAugment(BatchFilter):
         rotation = np.random.random()*self.rotation_max_amount + self.rotation_start
         if rotation != 0:
             logger.debug('rotating with rotation=%f', rotation)
-            transformation += augment.create_rotation_transformation(
+            transformation += _create_rotation_transformation(
                     target_shape,
                     rotation,
+                    voxel_size=self.voxel_size,
                     subsample=self.subsample)
 
         if self.subsample > 1:
