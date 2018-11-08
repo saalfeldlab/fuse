@@ -70,7 +70,7 @@ def _create_rotation_transformation(shape, angle, subsample=1, voxel_size=None):
     control_point_scaling_factor = tuple(float(s-1) * vs for s, vs in zip(shape, voxel_size))
 
     # rotate control points
-    center = np.array([0.5*(d-1) for d in shape])
+    center = np.array([0.5*(d-1)*vs for d, vs in zip(shape, voxel_size)])
 
     # print("Creating rotation transformation with:")
     # print("\tangle : " + str(angle))

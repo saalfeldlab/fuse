@@ -92,7 +92,7 @@ augmentations = (
         control_point_spacing=(4, 40, 40),
         #jitter_sigma=(0, 1 * 2 * 36, 0 * 36),
         jitter_sigma=(0, 2, 2),
-        rotation_interval=(2 * np.pi / 8, 2 * np.pi / 8),
+        rotation_interval=(2 * np.pi / 8, 0 * 2 * np.pi),
         subsample=1),
 )
 

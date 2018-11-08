@@ -76,7 +76,7 @@ input_resolution  = (360, 36, 36)
 output_resolution = Coordinate((120, 108, 108))
 offset = (13640, 10932, 10932)
 
-output_shape = Coordinate((12, 100, 100)) * output_resolution
+output_shape = Coordinate((60, 100, 100)) * output_resolution
 output_offset = (13320 + 3600, 32796 + 36 + 10800, 32796 + 36 + 10800)
 
 overhang = Coordinate((360, 108, 108)) * 16
@@ -90,14 +90,14 @@ input_roi  = Roi(offset=input_offset, shape=input_shape)
 
 augmentations = (
     ElasticAugment(
-        voxel_size=(123, 43, 37),
+        voxel_size=(360, 36, 36),
         control_point_spacing=(4, 40, 40),
         jitter_sigma=(0, 1 * 2 * 36, 1 * 2 * 36),
         rotation_interval=(2 * np.pi / 8, 0*2*np.pi),
         subsample=8,
-        prob_slip=0.5,
-        prob_shift=0.3,
-        max_misalign=(360, 720),
+        prob_slip=0.1,
+        prob_shift=0.1,
+        max_misalign=(720, 720),
         seed=100),
 )
 
