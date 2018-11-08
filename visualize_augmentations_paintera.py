@@ -95,6 +95,9 @@ augmentations = (
         jitter_sigma=(0, 1 * 2 * 36, 1 * 2 * 36),
         rotation_interval=(2 * np.pi / 8, 0*2*np.pi),
         subsample=8,
+        prob_slip=0.5,
+        prob_shift=0.3,
+        max_misalign=(360, 720),
         seed=100),
 )
 

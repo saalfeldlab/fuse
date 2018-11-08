@@ -101,6 +101,8 @@ def _min_max_mean_std(ndarray, prefix=''):
 class ElasticAugment(BatchFilter):
     """
     jitter_sigma in world space
+
+    max_misalign tuple in world space
     """
 
     def __init__(
@@ -112,7 +114,7 @@ class ElasticAugment(BatchFilter):
             subsample=1,
             prob_slip=0,
             prob_shift=0,
-            max_misalign=0,
+            max_misalign=(0, 0),
             spatial_dims=3,
             seed=None):
         super(BatchFilter, self).__init__()
@@ -348,11 +350,11 @@ parameter, the output pixel value at index o was determined from the input image
 
             if r <= self.prob_slip:
 
-                shifts[z] = self.__random_offset()
+                shifts[z] = self._random_offset()
 
             elif r <= self.prob_slip + self.prob_shift:
 
-                offset = self.__random_offset()
+                offset = self._random_offset()
                 for zp in range(z, num_sections):
                     shifts[zp] += offset
 
@@ -394,3 +396,6 @@ parameter, the output pixel value at index o was determined from the input image
         )
 
         return source_roi
+
+    def _random_offset(self):
+        return Coordinate((0,) + tuple(ma - np.random.rand() * 2 * ma for ma in self.max_misalign))
