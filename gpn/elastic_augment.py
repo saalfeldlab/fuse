@@ -123,10 +123,10 @@ class ElasticAugment(BatchFilter):
     def prepare(self, request):
         logger.debug('%s preparing request %s with transformation voxel size %s', type(self).__name__, request, self.voxel_size)
 
-        self.__sanity_check(request)
+        self._sanity_check(request)
 
         total_roi  = request.get_total_roi()
-        master_roi = self.__spatial_roi(total_roi)
+        master_roi = self._spatial_roi(total_roi)
         logger.debug("master roi is %s with voxel size %s", master_roi, self.voxel_size)
 
         if self.seed is not None:
@@ -134,7 +134,7 @@ class ElasticAugment(BatchFilter):
 
         master_roi_snapped = master_roi.snap_to_grid(self.voxel_size, mode='grow')
         master_roi_voxels  = master_roi_snapped // self.voxel_size
-        master_transform   = self.__create_transformation(master_roi_voxels.get_shape(), offset=master_roi_snapped.get_begin())
+        master_transform   = self._create_transformation(master_roi_voxels.get_shape(), offset=master_roi_snapped.get_begin())
 
         self.transformations.clear()
         self.target_rois.clear()
@@ -149,7 +149,7 @@ class ElasticAugment(BatchFilter):
 
             voxel_size            = spec.voxel_size
             # Todo we could probably remove snap_to_grid, we already check spec.roi % voxel_size == 0
-            target_roi            = self.__spatial_roi(spec.roi).snap_to_grid(voxel_size)
+            target_roi            = self._spatial_roi(spec.roi).snap_to_grid(voxel_size)
             self.target_rois[key] = target_roi
             target_roi_voxels     = target_roi // voxel_size
 
@@ -162,11 +162,11 @@ class ElasticAugment(BatchFilter):
             logger.debug('key %s: scale %s and offset %s', key, scale, offset)
 
             # need to pass inverse transform, hence -offset
-            transform    = self.__affine(master_transform, scale, offset, target_roi_voxels)
+            transform    = self._affine(master_transform, scale, offset, target_roi_voxels)
             logger.debug('key %s: transformed transform statistics          %s', key, _min_max_mean_std(transform))
-            source_roi = self.__get_source_roi(transform).snap_to_grid(voxel_size)
+            source_roi = self._get_source_roi(transform).snap_to_grid(voxel_size)
             logger.debug('key %s: source roi (target roi) is %s (%s)', key, source_roi, target_roi)
-            self.__shift_transformation(-target_roi.get_begin(), transform)
+            self._shift_transformation(-target_roi.get_begin(), transform)
             logger.debug('key %s: shifted transformed transform statistics: %s', key, _min_max_mean_std(transform))
             for d, (vs, b1, b2) in enumerate(zip(voxel_size, target_roi.get_begin(), source_roi.get_begin())):
                 pixel_offset = (b1 - b2) / vs
@@ -216,7 +216,7 @@ class ElasticAugment(BatchFilter):
             # restore original ROIs
             array.spec.roi = request[key].roi
 
-    def __create_transformation(self, target_shape, offset):
+    def _create_transformation(self, target_shape, offset):
 
         logger.debug('creating displacement for shape %s, subsample %d', target_shape, self.subsample)
         transformation = _create_identity_transformation(target_shape, subsample=self.subsample, voxel_size=self.voxel_size, offset=offset)
@@ -246,17 +246,17 @@ class ElasticAugment(BatchFilter):
 
         if self.prob_slip + self.prob_shift > 0:
             logger.debug('misaligning')
-            self.__misalign(transformation)
+            self._misalign(transformation)
 
         return transformation
 
-    def __spatial_roi(self, roi):
+    def _spatial_roi(self, roi):
         return Roi(
             roi.get_begin()[-self.spatial_dims:],
             roi.get_shape()[-self.spatial_dims:]
         )
 
-    def __affine(self, array, scale, offset, target_roi, dtype=np.float32, order=1):
+    def _affine(self, array, scale, offset, target_roi, dtype=np.float32, order=1):
         '''taken from the scipy 0.18.1 doc:
 https://docs.scipy.org/doc/scipy-0.18.1/reference/generated/scipy.ndimage.affine_transform.html#scipy.ndimage.affine_transform
 
@@ -288,7 +288,7 @@ parameter, the output pixel value at index o was determined from the input image
                 mode='nearest')
         return output
 
-    def __get_minimal_containing_roi(self, transformation):
+    def _get_minimal_containing_roi(self, transformation):
 
         dims = transformation.shape[0]
 
@@ -306,7 +306,7 @@ parameter, the output pixel value at index o was determined from the input image
 
         return source_roi
 
-    def __shift_transformation(self, shift, transformation):
+    def _shift_transformation(self, shift, transformation):
         for d in range(transformation.shape[0]):
             transformation[d] += shift[d]
 
@@ -323,18 +323,18 @@ parameter, the output pixel value at index o was determined from the input image
             displacement[d, ...] = transform[d, ...] - positions[d]
         return displacement
 
-    def __scale_displacements(self, displacements, voxel_size):
+    def _scale_displacements(self, displacements, voxel_size):
         for d in range(displacements.shape[0]):
             displacements[d, ...] = displacements[d, ...] / voxel_size[d]
 
-    def __as_absolute_positions_in_voxels(self, displacements, dtype=np.float32):
+    def _as_absolute_positions_in_voxels(self, displacements, dtype=np.float32):
         positions = np.meshgrid(*[np.arange(d) for d in displacements.shape[1:]], indexing='ij')
         absolute  = np.empty(displacements.shape, dtype=dtype)
         for d in range(displacements.shape[0]):
             absolute[d, ...] = positions[d] + displacements[d, ...]
         return absolute
 
-    def __misalign(self, transformation):
+    def _misalign(self, transformation):
 
         assert transformation.shape[0] == 3, (
             "misalign can only be applied to 3D volumes")
@@ -363,11 +363,11 @@ parameter, the output pixel value at index o was determined from the input image
             transformation[2][z,:,:] += shifts[z][2]
 
 
-    def __random_offset(self):
+    def _random_offset(self):
         return Coordinate((0,) + tuple(self.max_misalign - np.random.randint(0, 2*int(self.max_misalign)) for d in range(2)))
 
 
-    def __sanity_check(self, request):
+    def _sanity_check(self, request):
 
         for key, spec in request.items():
 
@@ -379,12 +379,12 @@ parameter, the output pixel value at index o was determined from the input image
             assert spec.roi is not None, 'Roi is None for key %s'%key
             assert spec.roi.get_begin(), 'Offset is None for key %s'%key
             assert spec.roi.get_shape(), 'Shape is None for key %s'%key
-            assert np.all(np.mod(self.__spatial_roi(spec.roi).get_begin(), spec.voxel_size) == 0), \
+            assert np.all(np.mod(self._spatial_roi(spec.roi).get_begin(), spec.voxel_size) == 0), \
                 'begin of roi %s not snapped to voxel size %s for key %s'%(spec.roi.get_begin(), spec.voxel_size, key)
-            assert np.all(np.mod(self.__spatial_roi(spec.roi).get_shape(), spec.voxel_size) == 0), \
+            assert np.all(np.mod(self._spatial_roi(spec.roi).get_shape(), spec.voxel_size) == 0), \
                 'shape of roi %s not snapped to voxel size %s for key %s'%(spec.roi.get_shape(), spec.voxel_size, key)
 
-    def __get_source_roi(self, transformation):
+    def _get_source_roi(self, transformation):
 
         dims = transformation.shape[0]
 
