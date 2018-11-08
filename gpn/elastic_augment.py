@@ -10,7 +10,7 @@ import numpy as np
 import augment
 from gpn.lazy_string_representation import LazyStringRepresentation
 
-from gunpowder import BatchFilter, Roi, ArrayKey, ArraySpec, Coordinate
+from gunpowder import BatchFilter, Roi, ArrayKey, Coordinate
 
 logger = logging.getLogger(__name__)
 
@@ -47,6 +47,7 @@ def _upscale_transformation(transformation, output_shape, interpolate_order=1, d
         scipy.ndimage.zoom(transformation[d], zoom=scale, output=scaled[d], order=interpolate_order, mode='nearest')
 
     return scaled
+
 
 def _min_max_mean_std(ndarray, prefix=''):
     def mins (x): return tuple(map(np.min,  x))
