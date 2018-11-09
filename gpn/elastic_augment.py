@@ -112,9 +112,6 @@ class ElasticAugment(BatchFilter):
             jitter_sigma,
             rotation_interval,
             subsample=1,
-            prob_slip=0,
-            prob_shift=0,
-            max_misalign=(0, 0),
             spatial_dims=3,
             seed=None):
         super(BatchFilter, self).__init__()
@@ -124,9 +121,6 @@ class ElasticAugment(BatchFilter):
         self.rotation_start = rotation_interval[0]
         self.rotation_max_amount = rotation_interval[1] - rotation_interval[0]
         self.subsample = subsample
-        self.prob_slip = prob_slip
-        self.prob_shift = prob_shift
-        self.max_misalign = max_misalign
         self.spatial_dims = spatial_dims
         self.seed = seed
 
@@ -137,9 +131,6 @@ class ElasticAugment(BatchFilter):
                      'rotation_start=%f '
                      'rotation_max_amount=%f '
                      'subsample=%f '
-                     'prob_slip=%f '
-                     'prob_shift=%f '
-                     'max_misalign=%f '
                      'spatial_dims=%d '
                      'seed=%d',
                      self.voxel_size,
@@ -148,9 +139,6 @@ class ElasticAugment(BatchFilter):
                      self.rotation_start,
                      self.rotation_max_amount,
                      self.subsample,
-                     self.prob_slip,
-                     self.prob_shift,
-                     self.max_misalign,
                      self.spatial_dims,
                      self.seed)
 
@@ -288,10 +276,6 @@ class ElasticAugment(BatchFilter):
                     target_shape)
             logger.debug('transform statistics after  upscale: %s', _min_max_mean_std(transformation))
 
-        if self.prob_slip + self.prob_shift > 0:
-            logger.debug('misaligning')
-            self._misalign(transformation)
-
         return transformation
 
     def _spatial_roi(self, roi):
@@ -336,34 +320,6 @@ parameter, the output pixel value at index o was determined from the input image
         for d in range(transformation.shape[0]):
             transformation[d] += shift[d]
 
-    def _misalign(self, transformation):
-
-        assert transformation.shape[0] == 3, (
-            "misalign can only be applied to 3D volumes")
-
-        num_sections = transformation[0].shape[0]
-
-        shifts = [Coordinate((0,0,0))]*num_sections
-        for z in range(num_sections):
-
-            r = np.random.random()
-
-            if r <= self.prob_slip:
-
-                shifts[z] = self._random_offset()
-
-            elif r <= self.prob_slip + self.prob_shift:
-
-                offset = self._random_offset()
-                for zp in range(z, num_sections):
-                    shifts[zp] += offset
-
-        logger.debug("misaligning sections with " + str(shifts))
-
-        for z in range(num_sections):
-            transformation[1][z,:,:] += shifts[z][1]
-            transformation[2][z,:,:] += shifts[z][2]
-
     def _sanity_check(self, request):
 
         for key, spec in request.items():
@@ -396,6 +352,3 @@ parameter, the output pixel value at index o was determined from the input image
         )
 
         return source_roi
-
-    def _random_offset(self):
-        return Coordinate((0,) + tuple(ma - np.random.rand() * 2 * ma for ma in self.max_misalign))
