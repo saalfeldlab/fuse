@@ -24,9 +24,34 @@ def _spatial_roi(roi, spatial_dims):
 
 class Misalign(BatchFilter):
     """
-    jitter_sigma in world space
+    Misalign serial sections by randomly shifting along yx-coordinate axes (1, 2).
+    Arrays can have different voxel sizes but the z-component of each voxel size
+    has to be integer multiple of z_resolution. In practice, use the lowest resolution
+    along z of all arrays requested in the roi.
 
-    max_misalign tuple in world space
+    Args:
+
+        z_resolution (``int``):
+
+            Resolution at which to generate shifts. Note that, for all specs in the request,
+            spec.voxel_size[0] is integer multiple of z_resolution
+
+
+        prob_slip (``float``):
+
+            Probability of a section to "slip", i.e., be independently moved in
+            x-y.
+
+        prob_shift (``float``):
+
+            Probability of a section and all following sections to move in x-y. This
+            is a conditional probability for the case that slip == False. If slip == True,
+            no shift will occur for a section.
+
+        max_misalign (``tuple`` of two ``floats``):
+
+            Maximal displacement to shift in x and y. Samples will be drawn
+            uniformly.
     """
 
     def __init__(

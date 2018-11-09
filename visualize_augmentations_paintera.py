@@ -93,17 +93,14 @@ output_roi = Roi(offset=output_offset, shape=output_shape)
 input_roi  = Roi(offset=input_offset, shape=input_shape)
 
 augmentations = (
+    ElasticAugment(
+        voxel_size=(360, 36, 36),
+        control_point_spacing=(4, 40, 40),
+        jitter_sigma=(0, 1 * 2 * 36, 1 * 2 * 36),
+        rotation_interval=(0 * np.pi / 8, 0*2*np.pi),
+        subsample=8,
+        seed=100),
     Misalign(z_resolution=360, prob_slip=0.2, prob_shift=0.0, max_misalign=(3600, 0), seed=100),
-    # ElasticAugment(
-    #     voxel_size=(360, 36, 36),
-    #     control_point_spacing=(4, 40, 40),
-    #     jitter_sigma=(0, 1 * 2 * 36, 1 * 2 * 36),
-    #     rotation_interval=(0 * np.pi / 8, 0*2*np.pi),
-    #     subsample=8,
-    #     prob_slip=0.3,
-    #     prob_shift=0.3,
-    #     max_misalign=(720, 720),
-    #     seed=100),
 )
 
 keys = (RAW, GT_LABELS)[:]

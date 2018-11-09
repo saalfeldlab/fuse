@@ -100,9 +100,51 @@ def _min_max_mean_std(ndarray, prefix=''):
 
 class ElasticAugment(BatchFilter):
     """
-    jitter_sigma in world space
+    Elasticly deform a batch. Requests larger batches upstream to avoid data
+    loss due to rotation and jitter.
 
-    max_misalign tuple in world space
+    Args:
+
+        voxel_size (``tuple`` of ``int`):
+
+            voxel size at which to generate deformation field.
+
+        control_point_spacing (``tuple`` of ``int``):
+
+            Distance between control points for the elastic deformation, in
+            voxels per dimension.
+
+        jitter_sigma (``tuple`` of ``float``):
+
+            Standard deviation of control point jitter distribution, in world coordinates.
+
+        rotation_interval (``tuple`` of two ``floats``):
+
+            Interval to randomly sample rotation angles from (0, 2PI).
+
+        subsample (``int``):
+
+            Instead of creating an elastic transformation on the full
+            resolution, create one sub-sampled by the given factor, and linearly
+            interpolate to obtain the full resolution transformation. This can
+            significantly speed up this node, at the expense of having visible
+            piecewise linear deformations for large factors. Usually, a factor
+            of 4 can safely be used without noticeable changes. However, the
+            default is 1 (i.e., no sub-sampling).
+
+        spatial_dims (``int``):
+
+            The number of spatial dimensions in arrays. Spatial dimensions are
+            assumed to be the last ones and cannot be more than 3 (default).
+            Set this value here to avoid treating channels as spacial
+            dimension. If, for example, your array is indexed as ``(c,y,x)``
+            (2D plus channels), you would want to set ``spatial_dims=2`` to
+            perform the elastic deformation only on x and y.
+
+        seed (``int``):
+
+            Set random state for reproducible results (tests only, do not use
+            in production code!!)
     """
 
     def __init__(
