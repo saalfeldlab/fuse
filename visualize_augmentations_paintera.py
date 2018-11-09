@@ -1,7 +1,7 @@
 # uncomment to see debug output
 import logging
 
-from gpn.misalign import Misalign
+from gpn import Misalign
 
 logging.getLogger('gpn.elastic_augment').setLevel(logging.DEBUG)
 logging.getLogger('gpn.misalign').setLevel(logging.DEBUG)
@@ -14,7 +14,7 @@ import numpy as np
 
 import gpn.util
 import jnius_config
-from gpn.elastic_augment import ElasticAugment
+from gpn import ElasticAugment
 from gunpowder import Hdf5Source, Roi, Coordinate
 
 RAW       = gpn.util.RAW
