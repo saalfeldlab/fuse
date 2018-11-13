@@ -3,9 +3,10 @@ import logging
 
 from gpn import Misalign
 
-logging.getLogger('gpn.elastic_augment').setLevel(logging.DEBUG)
-logging.getLogger('gpn.misalign').setLevel(logging.DEBUG)
-logging.getLogger('gpn.util').setLevel(logging.DEBUG)
+logging.getLogger('gpn.defect_augment').setLevel(logging.DEBUG)
+# logging.getLogger('gpn.elastic_augment').setLevel(logging.DEBUG)
+# logging.getLogger('gpn.misalign').setLevel(logging.DEBUG)
+# logging.getLogger('gpn.util').setLevel(logging.DEBUG)
 
 import glob
 import os
@@ -14,11 +15,13 @@ import numpy as np
 
 import gpn.util
 import jnius_config
-from gpn import ElasticAugment
-from gunpowder import Hdf5Source, Roi, Coordinate
+from gpn import ElasticAugment, DefectAugment
+from gunpowder import Hdf5Source, Roi, Coordinate, ArrayKey, ArraySpec, RandomLocation, Normalize, IntensityAugment, \
+    SimpleAugment
 
-RAW       = gpn.util.RAW
-GT_LABELS = gpn.util.GT_LABELS
+RAW        = gpn.util.RAW
+GT_LABELS  = gpn.util.GT_LABELS
+ALPHA_MASK = ArrayKey('ALPHA_MASK')
 
 
 def add_to_viewer(batch_or_snapshot, keys, name=lambda key: key.identifier, is_label=lambda key, array: array.data.dtype == np.uint64):
@@ -59,10 +62,38 @@ args = parser.parse_args()
 
 data_providers = []
 data_dir = '/groups/saalfeld/home/hanslovskyp/experiments/quasi-isotropic/data'
-# data_dir = os.path.expanduser('~/Dropbox/cremi-upsampled/')
+data_dir = os.path.expanduser('~/Dropbox/cremi-upsampled/')
 file_pattern = 'sample_A_padded_20160501-2-additional-sections-fixed-offset.h5'
 file_pattern = 'sample_B_padded_20160501-2-additional-sections-fixed-offset.h5'
 file_pattern = 'sample_C_padded_20160501-2-additional-sections-fixed-offset.h5'
+
+defect_dir = '/groups/saalfeld/home/hanslovskyp/experiments/quasi-isotropic/data/defects'
+
+artifact_source = (
+        Hdf5Source(
+            os.path.join(defect_dir, 'sample_ABC_padded_20160501.defects.hdf'),
+            datasets={
+                RAW:        'defect_sections/raw',
+                ALPHA_MASK: 'defect_sections/mask',
+            },
+            array_specs={
+                RAW:        ArraySpec(voxel_size=tuple(d * 9 for d in (40, 4, 4))),
+                ALPHA_MASK: ArraySpec(voxel_size=tuple(d * 9 for d in (40, 4, 4))),
+            }
+        ) +
+        RandomLocation(min_masked=0.05, mask=ALPHA_MASK) +
+        Normalize(RAW) +
+        IntensityAugment(RAW, 0.9, 1.1, -0.1, 0.1, z_section_wise=True) +
+        ElasticAugment(
+            voxel_size=(360, 36, 36),
+            control_point_spacing=(4, 40, 40),
+            jitter_sigma=(0, 2 * 36, 2 * 36),
+            rotation_interval=(0, np.pi / 2.0),
+            subsample=8
+        ) +
+        SimpleAugment(transpose_only=[1,2])
+    )
+
 
 
 
@@ -101,6 +132,15 @@ augmentations = (
         subsample=8,
         seed=100),
     Misalign(z_resolution=360, prob_slip=0.2, prob_shift=0.0, max_misalign=(3600, 0), seed=100),
+    DefectAugment(
+        RAW,
+        prob_missing=0.03,
+        prob_low_contrast=0.01,
+        prob_artifact=0.03,
+        artifact_source=artifact_source,
+        artifacts=RAW,
+        artifacts_mask=ALPHA_MASK,
+        contrast_scale=0.5),
 )
 
 keys = (RAW, GT_LABELS)[:]
