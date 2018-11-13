@@ -3,12 +3,8 @@ from __future__ import division
 import logging
 import math
 
-import scipy.ndimage
-
 import numpy as np
-
-import augment
-from gpn.lazy_string_representation import LazyStringRepresentation
+import scipy.ndimage
 
 from gunpowder import BatchFilter, Roi, ArrayKey, Coordinate
 
