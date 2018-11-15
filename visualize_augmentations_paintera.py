@@ -131,7 +131,7 @@ augmentations = (
         rotation_interval=(0 * np.pi / 8, 0*2*np.pi),
         subsample=8,
         seed=100),
-    Misalign(z_resolution=360, prob_slip=0.2, prob_shift=0.0, max_misalign=(3600, 0), seed=100),
+    Misalign(z_resolution=360, prob_slip=0.2, prob_shift=0.0, max_misalign=(3600, 0), seed=100, ignore_keys_for_slip=(GT_LABELS,)),
     DefectAugment(
         RAW,
         prob_missing=0.03,

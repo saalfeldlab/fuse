@@ -48,6 +48,10 @@ class Misalign(BatchFilter):
 
             Maximal displacement to shift in x and y. Samples will be drawn
             uniformly.
+
+        ignore_keys_for_slip (``tuple`` of keys):
+
+            Only apply shifts (but not slips) to any key in this ``tuple``.
     """
 
     def __init__(
@@ -56,13 +60,14 @@ class Misalign(BatchFilter):
             prob_slip=0,
             prob_shift=0,
             max_misalign=(0, 0),
+            ignore_keys_for_slip=(),
             seed=None):
         super(BatchFilter, self).__init__()
         self.z_resolution = Coordinate((z_resolution,))
         self.prob_slip = prob_slip
-        self.prob_slip = prob_slip
         self.prob_shift = prob_shift
         self.max_misalign = max_misalign
+        self.ignore_keys_for_slip = ignore_keys_for_slip
         self.seed = seed
 
         logger.debug('initialized with parameters '
@@ -70,10 +75,12 @@ class Misalign(BatchFilter):
                      'prob_shift=%f '
                      'max_misalign=%f '
                      'spatial_dims=%d '
+                     'ignore_keys_for_slip=%s '
                      'seed=%d',
                      self.prob_slip,
                      self.prob_shift,
                      self.max_misalign,
+                     self.ignore_keys_for_slip,
                      self.seed)
 
         self.translations = {}
@@ -95,7 +102,8 @@ class Misalign(BatchFilter):
 
         master_roi_snapped = master_roi.snap_to_grid(self.z_resolution, mode='grow')
         master_roi_voxels  = master_roi_snapped // self.z_resolution
-        master_translations = np.asarray(self._misalign(master_roi_voxels.get_shape()[0]))
+        master_shifts, master_slips = map(np.asarray, self._misalign(master_roi_voxels.get_shape()[0]))
+            # np.asarray(self._misalign(master_roi_voxels.get_shape()[0]))
 
         self.translations.clear()
         self.target_rois.clear()
@@ -119,6 +127,7 @@ class Misalign(BatchFilter):
             start = voxel_offset + int(half_voxel_size_diff / z_resolution[0])
             logger.debug('prepare key %s: voxel_offset=%s start=%s', key, voxel_offset, start)
             stop = start + int(z_roi_voxels.get_shape()[0])
+            master_translations = master_shifts if key in self.ignore_keys_for_slip else master_shifts + master_slips
             translations = np.repeat(master_translations, voxel_size_ratio, axis=0)[start:stop]
             # logger.debug('prepare key %s: translations=%s', key, translations)
             m = np.min(translations, axis=0)
@@ -176,7 +185,13 @@ class Misalign(BatchFilter):
         )
 
     def _misalign(self, num_sections):
+        """
 
+        :param num_sections: number of sections
+        :return: (shifts, slips)
+        """
+
+        slips  = [Coordinate((0,0))]*num_sections
         shifts = [Coordinate((0,0))]*num_sections
         for z in range(num_sections):
 
@@ -184,7 +199,7 @@ class Misalign(BatchFilter):
 
             if r <= self.prob_slip:
 
-                shifts[z] = self._random_offset()
+                slips[z] = self._random_offset()
 
             elif r <= self.prob_slip + self.prob_shift:
 
@@ -195,7 +210,7 @@ class Misalign(BatchFilter):
         logger.debug("misaligning sections with " + str(shifts))
 
 
-        return shifts
+        return shifts, slips
 
     def _sanity_check(self, request):
 
