@@ -114,9 +114,9 @@ class ElasticAugment(BatchFilter):
             Distance between control points for the elastic deformation, in
             voxels per dimension.
 
-        jitter_sigma (``tuple`` of ``float``):
+        control_point_displacement_sigma (``tuple`` of ``float``):
 
-            Standard deviation of control point jitter distribution, in world coordinates.
+            Standard deviation of control point displacement distribution, in world coordinates.
 
         rotation_interval (``tuple`` of two ``floats``):
 
@@ -151,25 +151,28 @@ class ElasticAugment(BatchFilter):
             self,
             voxel_size,
             control_point_spacing,
-            jitter_sigma,
+            control_point_displacement_sigma,
             rotation_interval,
             subsample=1,
             spatial_dims=3,
+            augmentation_probability=1.0,
             seed=None):
         super(BatchFilter, self).__init__()
         self.voxel_size = voxel_size
         self.control_point_spacing = control_point_spacing
-        self.jitter_sigma = jitter_sigma
+        self.control_point_displacement_sigma = control_point_displacement_sigma
         self.rotation_start = rotation_interval[0]
         self.rotation_max_amount = rotation_interval[1] - rotation_interval[0]
         self.subsample = subsample
         self.spatial_dims = spatial_dims
+        self.augmentation_probability = augmentation_probability
         self.seed = seed
+        self.do_augment = False
 
         logger.debug('initialized with parameters '
                      'voxel_size=%s '
                      'control_point_spacing=%s '
-                     'jitter_sigma=%s '
+                     'control_point_displacement_sigma=%s '
                      'rotation_start=%f '
                      'rotation_max_amount=%f '
                      'subsample=%f '
@@ -177,7 +180,7 @@ class ElasticAugment(BatchFilter):
                      'seed=%d',
                      self.voxel_size,
                      self.control_point_spacing,
-                     self.jitter_sigma,
+                     self.control_point_displacement_sigma,
                      self.rotation_start,
                      self.rotation_max_amount,
                      self.subsample,
@@ -204,6 +207,14 @@ class ElasticAugment(BatchFilter):
 
         if self.seed is not None:
             np.random.seed(self.seed)
+
+        uniform_random_sample = np.random.rand()
+        logger.debug('Prepare: Uniform random sample is %f, probability to augment is %f', uniform_random_sample, self.augmentation_probability)
+        self.do_augment = uniform_random_sample < self.augmentation_probability
+        if not self.do_augment:
+            logger.debug('Prepare: Randomly not augmenting at all. (probabilty to augment: %f)', self.augmentation_probability)
+            return
+
 
         master_roi_snapped = master_roi.snap_to_grid(self.voxel_size, mode='grow')
         master_roi_voxels  = master_roi_snapped // self.voxel_size
@@ -255,6 +266,11 @@ class ElasticAugment(BatchFilter):
 
     def process(self, batch, request):
 
+        if not self.do_augment:
+            logger.debug('Process: Randomly not augmenting at all. (probabilty to augment: %f)', self.augmentation_probability)
+            return
+
+
         for key, _ in request.items():
             assert key in batch.arrays, 'only arrays supported but got %s'%key
             array = batch.arrays[key]
@@ -293,12 +309,12 @@ class ElasticAugment(BatchFilter):
 
         logger.debug('creating displacement for shape %s, subsample %d', target_shape, self.subsample)
         transformation = _create_identity_transformation(target_shape, subsample=self.subsample, voxel_size=self.voxel_size, offset=offset)
-        if np.any(np.asarray(self.jitter_sigma) > 0):
-            logger.debug('Jittering with sigma=%s and spacing=%s', self.jitter_sigma, self.control_point_spacing)
+        if np.any(np.asarray(self.control_point_displacement_sigma) > 0):
+            logger.debug('Jittering with sigma=%s and spacing=%s', self.control_point_displacement_sigma, self.control_point_spacing)
             elastic = augment.create_elastic_transformation(
                     target_shape,
                     self.control_point_spacing,
-                    self.jitter_sigma,
+                    self.control_point_displacement_sigma,
                     subsample=self.subsample)
             logger.debug('elastic displacements statistics: %s', _min_max_mean_std(elastic))
             transformation += elastic

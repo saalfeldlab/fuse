@@ -3,8 +3,8 @@ import logging
 
 from gpn import Misalign
 
-logging.getLogger('gpn.defect_augment').setLevel(logging.DEBUG)
-# logging.getLogger('gpn.elastic_augment').setLevel(logging.DEBUG)
+# logging.getLogger('gpn.defect_augment').setLevel(logging.DEBUG)
+logging.getLogger('gpn.elastic_augment').setLevel(logging.DEBUG)
 # logging.getLogger('gpn.misalign').setLevel(logging.DEBUG)
 # logging.getLogger('gpn.util').setLevel(logging.DEBUG)
 
@@ -62,7 +62,7 @@ args = parser.parse_args()
 
 data_providers = []
 data_dir = '/groups/saalfeld/home/hanslovskyp/experiments/quasi-isotropic/data'
-data_dir = os.path.expanduser('~/Dropbox/cremi-upsampled/')
+# data_dir = os.path.expanduser('~/Dropbox/cremi-upsampled/')
 file_pattern = 'sample_A_padded_20160501-2-additional-sections-fixed-offset.h5'
 file_pattern = 'sample_B_padded_20160501-2-additional-sections-fixed-offset.h5'
 file_pattern = 'sample_C_padded_20160501-2-additional-sections-fixed-offset.h5'
@@ -87,7 +87,7 @@ artifact_source = (
         ElasticAugment(
             voxel_size=(360, 36, 36),
             control_point_spacing=(4, 40, 40),
-            jitter_sigma=(0, 2 * 36, 2 * 36),
+            control_point_displacement_sigma=(0, 2 * 36, 2 * 36),
             rotation_interval=(0, np.pi / 2.0),
             subsample=8
         ) +
@@ -127,20 +127,21 @@ augmentations = (
     ElasticAugment(
         voxel_size=(360, 36, 36),
         control_point_spacing=(4, 40, 40),
-        jitter_sigma=(0, 1 * 2 * 36, 1 * 2 * 36),
+        control_point_displacement_sigma=(0, 1 * 2 * 36, 1 * 2 * 36),
         rotation_interval=(0 * np.pi / 8, 0*2*np.pi),
         subsample=8,
-        seed=100),
-    Misalign(z_resolution=360, prob_slip=0.2, prob_shift=0.0, max_misalign=(3600, 0), seed=100, ignore_keys_for_slip=(GT_LABELS,)),
-    DefectAugment(
-        RAW,
-        prob_missing=0.03,
-        prob_low_contrast=0.01,
-        prob_artifact=0.03,
-        artifact_source=artifact_source,
-        artifacts=RAW,
-        artifacts_mask=ALPHA_MASK,
-        contrast_scale=0.5),
+        augmentation_probability=0.1,
+        seed=None),
+    # Misalign(z_resolution=360, prob_slip=0.2, prob_shift=0.0, max_misalign=(3600, 0), seed=100, ignore_keys_for_slip=(GT_LABELS,)),
+    # DefectAugment(
+    #     RAW,
+    #     prob_missing=0.03,
+    #     prob_low_contrast=0.01,
+    #     prob_artifact=0.03,
+    #     artifact_source=artifact_source,
+    #     artifacts=RAW,
+    #     artifacts_mask=ALPHA_MASK,
+    #     contrast_scale=0.5),
 )
 
 keys = (RAW, GT_LABELS)[:]
