@@ -27,7 +27,16 @@ def mask(container, dataset, mask_pattern, zero_in_mask, overwrite=False):
             ds.attrs[k] = v
 
 
+# mask zero the following values for all samples (A, B, C)
+# TRANSPARENT = -0x1L // -1L or uint64.MAX_VALUE
+# INVALID = -0x2L // -2L or uint64.MAX_VALUE - 1
+# OUTSIDE = -0x3L // -3L or uint64.MAX_VALUE - 2
+# MAX_ID = -0x4L // -4L or uint64.MAX_VALUE - 3
+# background = 0
 
+# Additional values to mask zero:
+# sample B: 864427
+# sample C: 148058
 
 
 parser = argparse.ArgumentParser(description='Compare cremi volumes for label equality.')
