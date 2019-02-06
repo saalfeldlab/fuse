@@ -142,7 +142,7 @@ class Snapshot(BatchFilter):
     @staticmethod
     def default_attributes_callback(fallback_callback = lambda k, a: {}):
         def callback(key, array):
-            if (array.data.dtype == np.uint64):
+            if (array.data.dtype == np.uint64 or array.data.dtype == np.int64):
                 return Snapshot.max_id(key, array)
             elif (array.data.ndim == 3):
                 return Snapshot.min_max(key, array)
