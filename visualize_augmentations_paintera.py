@@ -127,10 +127,10 @@ augmentations = (
     ElasticAugment(
         voxel_size=(360, 36, 36),
         control_point_spacing=(4, 40, 40),
-        control_point_displacement_sigma=(0, 1 * 2 * 36, 1 * 2 * 36),
+        control_point_displacement_sigma=(0, 5 * 2 * 36, 5 * 2 * 36),
         rotation_interval=(0 * np.pi / 8, 0*2*np.pi),
         subsample=8,
-        augmentation_probability=0.1,
+        augmentation_probability=1.0,
         seed=None),
     # Misalign(z_resolution=360, prob_slip=0.2, prob_shift=0.0, max_misalign=(3600, 0), seed=100, ignore_keys_for_slip=(GT_LABELS,)),
     # DefectAugment(
