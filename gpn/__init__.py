@@ -3,6 +3,7 @@ from __future__ import absolute_import
 from .defect_augment import DefectAugment
 from .elastic_augment import ElasticAugment
 from .lazy_string_representation import LazyStringRepresentation
+from .log import Log
 from .misalign import Misalign
 from .simple_augment import SimpleAugment
 from .snapshot_with_attributes_callback import Snapshot
