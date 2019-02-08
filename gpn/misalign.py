@@ -73,8 +73,7 @@ class Misalign(BatchFilter):
         logger.debug('initialized with parameters '
                      'prob_slip=%f '
                      'prob_shift=%f '
-                     'max_misalign=%f '
-                     'spatial_dims=%d '
+                     'max_misalign=%s '
                      'ignore_keys_for_slip=%s '
                      'seed=%d',
                      self.prob_slip,
@@ -112,7 +111,6 @@ class Misalign(BatchFilter):
             assert isinstance(key, ArrayKey), 'Only ArrayKey supported but got %s in request'%type(key)
             z_resolution = Coordinate((spec.voxel_size[0],))
             z_roi = self._z_roi(spec.roi)
-            logger.debug('')
             z_roi_voxels = z_roi / z_resolution
             z_roi_snapped_voxels = ( master_roi_snapped ) / z_resolution
             voxel_size_ratio = int((self.z_resolution / z_resolution)[0])

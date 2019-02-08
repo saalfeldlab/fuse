@@ -130,7 +130,7 @@ class Snapshot(BatchFilter):
                     for attribute_name, attribute in array.attrs.items():
                         dataset.attrs[attribute_name] = attribute
 
-                    logger.info('Getting additional attributes for %s', array_key)
+                    logger.debug('Getting additional attributes for %s', array_key)
                     for (attribute_name, value) in self.attributes_callback(array_key, array).items():
                         dataset.attrs[attribute_name] = value
 
@@ -158,7 +158,7 @@ class Snapshot(BatchFilter):
         attrs =  {
             'min' : tuple(a.min().item() for a in array.data),
             'max' : tuple(a.max().item() for a in array.data)}
-        logger.info('Got attributes %s for key %s', attrs, key)
+        logger.debug('Got attributes %s for key %s', attrs, key)
         return attrs
 
     @staticmethod
