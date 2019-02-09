@@ -1,7 +1,7 @@
 # uncomment to see debug output
 import logging
 
-from gpn import Misalign
+from gpn import Misalign, Snapshot
 
 # logging.getLogger('gpn.defect_augment').setLevel(logging.DEBUG)
 logging.getLogger('gpn.elastic_augment').setLevel(logging.DEBUG)
@@ -107,14 +107,14 @@ for data in glob.glob(os.path.join(data_dir, file_pattern)):
     )
     data_providers.append(h5_source)
 
-input_resolution  = (360, 36, 36)
-output_resolution = Coordinate((120, 108, 108))
+input_resolution  = (360.0, 36.0, 36.0)
+output_resolution = Coordinate((120.0, 108.0, 108.0))
 offset = (13640, 10932, 10932)
 
-output_shape = Coordinate((60, 100, 100)) * output_resolution
+output_shape = Coordinate((60.0, 100.0, 100.0)) * output_resolution
 output_offset = (13320 + 3600, 32796 + 36 + 10800, 32796 + 36 + 10800)
 
-overhang = Coordinate((360, 108, 108)) * 16
+overhang = Coordinate((360.0, 108.0, 108.0)) * 16
 
 input_shape = output_shape + overhang * 2
 input_offset = Coordinate(output_offset) - overhang
@@ -124,15 +124,17 @@ output_roi = Roi(offset=output_offset, shape=output_shape)
 input_roi  = Roi(offset=input_offset, shape=input_shape)
 
 augmentations = (
+    Snapshot(dataset_names={GT_LABELS: 'volumes/gt', RAW: 'volumes/raw'}, output_dir='.', output_filename='snapshot-before.h5', attributes_callback=Snapshot.default_attributes_callback()),
     ElasticAugment(
-        voxel_size=(360, 36, 36),
+        voxel_size=(360.0, 36.0, 36.0),
         control_point_spacing=(4, 40, 40),
         control_point_displacement_sigma=(0, 5 * 2 * 36, 5 * 2 * 36),
         rotation_interval=(0 * np.pi / 8, 0*2*np.pi),
         subsample=8,
         augmentation_probability=1.0,
         seed=None),
-    # Misalign(z_resolution=360, prob_slip=0.2, prob_shift=0.0, max_misalign=(3600, 0), seed=100, ignore_keys_for_slip=(GT_LABELS,)),
+    Misalign(z_resolution=360, prob_slip=0.2, prob_shift=0.5, max_misalign=(3600, 0), seed=100, ignore_keys_for_slip=(GT_LABELS,)),
+    Snapshot(dataset_names={GT_LABELS: 'volumes/gt', RAW: 'volumes/raw'}, output_dir='.', output_filename='snapshot-after.h5', attributes_callback=Snapshot.default_attributes_callback())
     # DefectAugment(
     #     RAW,
     #     prob_missing=0.03,
@@ -164,7 +166,8 @@ PainteraBaseView = autoclass('org.janelia.saalfeldlab.paintera.PainteraBaseView'
 viewer = PainteraBaseView.defaultView()
 pbv = viewer.baseView
 scene, stage = payntera.jfx.start_stage(viewer.paneWithStatus.getPane())
-payntera.jfx.invoke_on_jfx_application_thread(lambda: pbv.orthogonalViews().setScreenScales([0.3, 0.1, 0.03]))
+screen_scale_setter = lambda: pbv.orthogonalViews().setScreenScales([0.3, 0.1, 0.03])
+# payntera.jfx.invoke_on_jfx_application_thread(screen_scale_setter)
 
 snapshot_states = add_to_viewer(snapshot, keys=keys, name=lambda key: '%s-snapshot'%key.identifier)
 states          = add_to_viewer(batch, keys=keys)
