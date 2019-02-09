@@ -1,5 +1,6 @@
 import os
-import z5py
+
+from .ext import z5py
 
 from gunpowder.nodes.hdf5like_source_base import Hdf5LikeSource
 
