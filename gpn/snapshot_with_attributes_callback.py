@@ -123,8 +123,8 @@ class Snapshot(BatchFilter):
                         dataset = f.create_dataset(name=ds_name, data=array.data, compression=self.compression_type)
                     
                     if array.spec.roi is not None:
-                        dataset.attrs['offset'] = array.spec.roi.get_offset()
-                    dataset.attrs['resolution'] = self.spec[array_key].voxel_size
+                        dataset.attrs['offset'] = tuple(float(o) for o in array.spec.roi.get_offset())
+                    dataset.attrs['resolution'] = tuple(float(vs) for vs in self.spec[array_key].voxel_size)
 
                     # if array has attributes, add them to the dataset
                     for attribute_name, attribute in array.attrs.items():
@@ -164,8 +164,8 @@ class Snapshot(BatchFilter):
     @staticmethod
     def min_max(key, array):
         return {
-            'min' : array.data.min().item(),
-            'max' : array.data.max().item()}
+            'min' : float(array.data.min().item()),
+            'max' : float(array.data.max().item())}
 
     @staticmethod
     def max_id(key, array):
