@@ -88,6 +88,23 @@ class Misalign(BatchFilter):
     def setup(self):
         pass
 
+    '''
+    prepare:
+        target_roi  := requested roi (world space)
+        b           := begin of requested roi
+        t           := array of translations per section (world space)
+        roi         := roi for upstream request (world space), deducted from target_roi:
+                         - begin: shift b by min(s)
+                         - shape: extend shape of target_roi by max(t) - min(t)
+                         - snap to voxel grid
+        b_tilde     := begin of roi
+
+    process:
+        o           := offset between target_ roi and roi: b - b_tilde
+        shifts      := array of shifts (offset into voxel array of roi) per section indexed by i:
+                           shifts[i] = o + t[i] / voxel_size
+                       use shifts for offset parameter in scipy affine transform
+    '''
     def prepare(self, request):
         logger.debug('%s preparing request %s with z_resolution %s', type(self).__name__, request, self.z_resolution)
 
@@ -135,7 +152,10 @@ class Misalign(BatchFilter):
             slice_roi = slice_roi.snap_to_grid(spec.voxel_size[1:])
 
             self.translations[key] = translations
+            # remember roi of key in original request
             self.target_rois[key] = spec.roi
+            # if all translation are > 0, new roi.begin might be larger than original roi.begin, which is ok
+            # new roi need not contain all of original roi (target roi)
             spec.roi = Roi(
                 spec.roi.get_begin()[:-2] + slice_roi.get_begin(),
                 spec.roi.get_shape()[:-2] + slice_roi.get_shape())
@@ -149,11 +169,13 @@ class Misalign(BatchFilter):
             assert key in batch.arrays, 'only arrays supported but got %s'%key
             array = batch.arrays[key]
             voxel_size = np.asarray(array.spec.voxel_size)
+            # target_roi is roi in original request
             target_roi = self.target_rois[key]
             target_roi_voxels = _spatial_roi(target_roi, 3) / array.spec.voxel_size
             roi_voxels = _spatial_roi(array.spec.roi, 3) / array.spec.voxel_size
-            offset_voxels = np.asarray(target_roi_voxels.get_begin() - roi_voxels.get_begin())[1:].astype(np.uint64)
-            slice_shape = np.asarray(target_roi_voxels.get_shape()[1:]).astype(np.uint64)
+            # offset can be negative, thus use in64 instead of uin64
+            offset_voxels = np.asarray(target_roi_voxels.get_begin() - roi_voxels.get_begin())[1:].astype(np.int64)
+            slice_shape = np.asarray(target_roi_voxels.get_shape()[1:]).astype(np.int64)
             data = np.empty(shape=target_roi.get_shape()[:-3] + target_roi_voxels.get_shape(), dtype=array.data.dtype)
             interpolate = array.spec.interpolatable
             for index, translation in enumerate(self.translations[key]):
@@ -164,13 +186,20 @@ class Misalign(BatchFilter):
                     stop = start + slice_shape
                     data[..., index, :, :] = current_slice[..., start[0]:stop[0], start[1]:stop[1]]
                 else:
-                    shift  = offset_voxels - translation_in_voxels
+                    shift  = offset_voxels + translation_in_voxels
                     source = np.reshape(current_slice, (-1,) + current_slice.shape[-2:])
                     target = np.reshape(data[..., index, :, :], (-1,) + tuple(map(int, slice_shape)))
                     matrix = np.ones((2,))
                     order  = 1 if interpolate else 0
                     for s, t in zip(source, target):
                         # output_shape has to be specified even if output is provided, soooo annoying to figure out
+                        # from the scipy doc, offset is wrt input:
+                        """
+                        Apply an affine transformation.
+
+                        Given an output image pixel index vector ``o``, the pixel value
+                        is determined from the input image at position
+                        ``np.dot(matrix, o) + offset``."""
                         scipy.ndimage.interpolation.affine_transform(input=s, output=t, output_shape=t.shape, matrix=matrix, offset=shift, order=order)
 
             array.spec.roi = target_roi
@@ -232,6 +261,14 @@ class Misalign(BatchFilter):
         # get bounding box of needed data for transformation
         bb_min = Coordinate(int(math.floor(transformation[d].min())) for d in range(dims))
         bb_max = Coordinate(int(math.ceil(transformation[d].max())) + 1 for d in range(dims))
+
+        # from the scipy doc for affine transform, offset is wrt input:
+        '''
+        Apply an affine transformation.
+
+        Given an output image pixel index vector ``o``, the pixel value
+        is determined from the input image at position
+        ``np.dot(matrix, o) + offset``.'''
 
         # create roi sufficiently large to feed transformation
         source_roi = Roi(
