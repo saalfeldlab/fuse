@@ -45,13 +45,13 @@ class Log(BatchFilter):
         self.process_logger(batch, request)
 
     @staticmethod
-    def log_numpy_array_stats_after_process(array_key, *stats_or_meta, logging_prefix='', logger=_logger):
+    def log_numpy_array_stats_after_process(array_key, *stats_or_meta, logging_prefix='', logger=_logger, level='debug'):
 
         def process_logger(batch, _):
             if array_key in batch.arrays:
-                logger.debug('%s%s', logging_prefix, _LazyStatisticsString(batch.arrays[array_key].data, *stats_or_meta))
+                getattr(logger, level, None)('%s%s', logging_prefix, _LazyStatisticsString(batch.arrays[array_key].data, *stats_or_meta))
             else:
-                logger.debug('Key %s not in batch %s', array_key, batch)
+                getattr(logger, level, None)('Key %s not in batch %s', array_key, batch)
 
         return Log(prepare_logger=lambda batch: None, process_logger=process_logger)
 
