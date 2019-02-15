@@ -32,12 +32,18 @@ class Z5Source(Hdf5LikeSource):
             that are not ``None`` in the given :class:`ArraySpec` will be used.
     '''
 
+    def __init__(self, filename, datasets, array_specs=None, revert=None):
+        super().__init__(filename, datasets, array_specs)
+        self.revert = revert
+
     def _get_array_attribute(self, dataset, attribute, fallback_value, revert=False):
         val = dataset.attrs[attribute] if attribute in dataset.attrs else [fallback_value] * 3
         return val[::-1] if revert else val
 
     def _revert(self):
-        return self.filename.endswith('.n5')
+        if self.revert is None:
+            self.revert = self.filename.endswith('.n5')
+        return self.revert
 
     def _get_voxel_size(self, dataset):
         return Coordinate(self._get_array_attribute(dataset, 'resolution', 1, revert=self._revert()))
@@ -90,12 +96,25 @@ class Z5Write(Hdf5LikeWrite):
             within the pipeline remain unchanged.
     '''
 
+    def __init__(
+            self,
+            dataset_names,
+            output_dir='.',
+            output_filename='output.hdf',
+            compression_type=None,
+            dataset_dtypes=None,
+            revert=None):
+        super().__init__(dataset_names, output_dir, output_filename, compression_type, dataset_dtypes)
+        self.revert = revert
+
     def _get_array_attribute(self, dataset, attribute, fallback_value, revert=False):
         val = dataset.attrs[attribute] if attribute in dataset.attrs else [fallback_value] * 3  # len(dataset.shape)
         return val[::-1] if revert else val
 
     def _revert(self):
-        return os.path.join(self.output_dir, self.output_filename).endswith('.n5')
+        if self.revert is None:
+            self.revert = os.path.join(self.output_dir, self.output_filename).endswith('.n5')
+        return self.revert
 
     def _get_voxel_size(self, dataset):
         return Coordinate(self._get_array_attribute(dataset, 'resolution', 1, revert=self._revert()))
