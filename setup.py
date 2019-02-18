@@ -25,7 +25,6 @@ version_info = {}
 with open(os.path.join(here, name, 'version_info.py')) as fp:
     exec(fp.read(), version_info)
 version = version_info['_version']
-print(version)
 
 setup(
     name='fuse',
