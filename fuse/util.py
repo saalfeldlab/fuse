@@ -1,4 +1,4 @@
-from gpn.snapshot_as_dict import SnapshotAsDict
+from fuse.snapshot_as_dict import SnapshotAsDict
 from gunpowder import ArrayKey, BatchRequest, build, RandomProvider, ArraySpec, logging
 
 RAW       = ArrayKey('RAW')

@@ -8,7 +8,7 @@ import scipy.ndimage
 import numpy as np
 
 import augment
-from gpn.lazy_string_representation import LazyStringRepresentation
+from fuse.lazy_string_representation import LazyStringRepresentation
 
 from gunpowder import BatchFilter, Roi, ArrayKey, Coordinate
 

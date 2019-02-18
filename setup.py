@@ -15,6 +15,6 @@ setup(
     long_description=gpn_long_description,
     long_description_content_type='text/markdown',
     url='https://github.com/hanslovsky/gunpowder-nodes',
-    packages=['gpn', 'gpn.ext'],
+    packages=['fuse', 'fuse.ext'],
     install_requires=['gunpowder', 'numpy', 'scipy', 'h5py', 'augment']
 )

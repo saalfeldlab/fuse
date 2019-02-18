@@ -1,18 +1,18 @@
 import logging
 # logging.getLogger('gunpowder.nodes.elastic_augment').setLevel(logging.DEBUG)
-# logging.getLogger('gpn.util').setLevel(logging.DEBUG)
+# logging.getLogger('fuse.util').setLevel(logging.DEBUG)
 
 import glob
 import os
 import time
 import numpy as np
 
-import gpn.util
+import fuse.util
 import jnius_config
-# from gpn.elastic_augment_non_matching_voxel_size import ElasticAugmentNonMatchingVoxelSize
+# from fuse.elastic_augment_non_matching_voxel_size import ElasticAugmentNonMatchingVoxelSize
 from gunpowder import Hdf5Source, Roi, Coordinate, ArrayKey, SimpleAugment, ElasticAugment
 
-RAW = gpn.util.RAW
+RAW = fuse.util.RAW
 
 
 def add_to_viewer(batch_or_snapshot, keys, name=lambda key: key.identifier,
@@ -96,7 +96,7 @@ augmentations = (
         subsample=1),
 )
 
-batch, snapshot = gpn.util.run_augmentations(
+batch, snapshot = fuse.util.run_augmentations(
     data_providers=data_providers,
     roi=lambda key: input_roi.copy(),
     augmentations=augmentations,

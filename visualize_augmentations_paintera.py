@@ -1,26 +1,26 @@
 # uncomment to see debug output
 import logging
 
-from gpn import Misalign, Snapshot
+from fuse import Misalign, Snapshot
 
-# logging.getLogger('gpn.defect_augment').setLevel(logging.DEBUG)
-logging.getLogger('gpn.elastic_augment').setLevel(logging.DEBUG)
-# logging.getLogger('gpn.misalign').setLevel(logging.DEBUG)
-# logging.getLogger('gpn.util').setLevel(logging.DEBUG)
+# logging.getLogger('fuse.defect_augment').setLevel(logging.DEBUG)
+logging.getLogger('fuse.elastic_augment').setLevel(logging.DEBUG)
+# logging.getLogger('fuse.misalign').setLevel(logging.DEBUG)
+# logging.getLogger('fuse.util').setLevel(logging.DEBUG)
 
 import glob
 import os
 import time
 import numpy as np
 
-import gpn.util
+import fuse.util
 import jnius_config
-from gpn import ElasticAugment, DefectAugment
+from fuse import ElasticAugment, DefectAugment
 from gunpowder import Hdf5Source, Roi, Coordinate, ArrayKey, ArraySpec, RandomLocation, Normalize, IntensityAugment, \
     SimpleAugment
 
-RAW        = gpn.util.RAW
-GT_LABELS  = gpn.util.GT_LABELS
+RAW        = fuse.util.RAW
+GT_LABELS  = fuse.util.GT_LABELS
 ALPHA_MASK = ArrayKey('ALPHA_MASK')
 
 
@@ -148,7 +148,7 @@ augmentations = (
 
 keys = (RAW, GT_LABELS)[:]
 
-batch, snapshot = gpn.util.run_augmentations(
+batch, snapshot = fuse.util.run_augmentations(
     data_providers=data_providers,
     roi=lambda key: output_roi.copy() if key == GT_LABELS else input_roi.copy(),
     augmentations=augmentations,
