@@ -14,7 +14,7 @@ setup(
     description='Some gunpowder nodes I use..',
     long_description=gpn_long_description,
     long_description_content_type='text/markdown',
-    url='https://github.com/hanslovsky/gunpowder-nodes',
+    url='https://github.com/hanslovsky/fuse',
     packages=['fuse', 'fuse.ext'],
     install_requires=['gunpowder', 'numpy', 'scipy', 'h5py', 'augment']
 )
