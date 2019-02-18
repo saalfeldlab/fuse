@@ -1,21 +1,43 @@
+import os
 from setuptools import setup
-from os import path
 
-here = path.abspath(path.dirname(__file__))
+here = os.path.abspath(os.path.dirname(__file__))
 
-with open(path.join(here, 'README.md')) as f:
+with open(os.path.join(here, 'README.md')) as f:
     fuse_long_description = f.read()
+
+install_requires = [
+    'pip>=18.1',
+    'numpy',
+    'scipy',
+    'h5py',
+    'augment @ git+https://github.com/funkey/augment@4a42b01ccad7607b47a1096e904220729dbcb80a',
+    'gunpowder @ git+https://github.com/funkey/gunpowder@d49573f53e8f23d12461ed8de831d0103acb2715'
+]
+
+# will need python 3.6 for f-strings in fuse.version_info
+# https://realpython.com/python-f-strings/#f-strings-a-new-and-improved-way-to-format-strings-in-python
+# https://www.python.org/dev/peps/pep-0498/
+
+name = 'fuse'
+
+version_info = {}
+with open(os.path.join(here, name, 'version_info.py')) as fp:
+    exec(fp.read(), version_info)
+version = version_info['_version']
+print(version)
 
 setup(
     name='fuse',
-    version='0.1.0.dev0',
+    version=version.version(),
     author='Philipp Hanslovsky',
     author_email='hanslovskyp@janelia.hhmi.org',
     description='Fuse to get gunpowder started',
     long_description=fuse_long_description,
     long_description_content_type='text/markdown',
-    url='https://github.com/hanslovsky/fuse',
+    url=f'https://github.com/hanslovsky/{name}',
     license='bsd-2',
-    packages=['fuse', 'fuse.ext'],
-    install_requires=['gunpowder', 'numpy', 'scipy', 'h5py', 'augment']
+    packages=[name, f'{name}.ext'],
+    install_requires=install_requires,
+    python_requires='>=3.6'
 )
