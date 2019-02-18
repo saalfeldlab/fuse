@@ -1,3 +1,3 @@
-Gunpowder Nodes
+# Fuse
 
-Useful [gunpowder](https://github.com/funkey/gunpowder) extensions used for quasi-isotropic predictions.
+A fuse to [gunpowder](https://github.com/funkey/gunpowder) for quasi-isotropic predictions.
