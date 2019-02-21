@@ -11,7 +11,7 @@ install_requires = [
     'numpy',
     'scipy',
     'h5py',
-    'augment @ git+https://github.com/funkey/augment@4a42b01ccad7607b47a1096e904220729dbcb80a',
+    'augment-nd',
     'gunpowder @ git+https://github.com/funkey/gunpowder@d49573f53e8f23d12461ed8de831d0103acb2715'
 ]
 
