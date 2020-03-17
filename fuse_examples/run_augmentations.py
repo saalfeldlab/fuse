@@ -1,10 +1,12 @@
-from fuse.snapshot_as_dict import SnapshotAsDict
 from gunpowder import ArrayKey, BatchRequest, build, RandomProvider, ArraySpec, logging
+
+from .snapshot_as_dict import SnapshotAsDict
 
 RAW       = ArrayKey('RAW')
 GT_LABELS = ArrayKey('GT_LABELS')
 
 logger = logging.getLogger(__name__)
+
 
 def run_augmentations(
         data_providers,
